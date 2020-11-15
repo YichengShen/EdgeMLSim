@@ -3,13 +3,17 @@ import sys	#for exit
 import _thread
 import pickle
 import time
+from Utils import *
 
 class RSU:
+    HOST = socket.gethostname()
+    PORT = 9999
+
     def __init__(self):
         self.model = 0
         self.gradient = 0
 
-    def run_server(self):
+    def process(self):
         HOST = socket.gethostname()	# Symbolic name meaning all available interfaces
         PORT = int(sys.argv[1])	# Arbitrary non-privileged port
 
@@ -29,49 +33,6 @@ class RSU:
         s.listen(10)
         print('Socket now listening')
 
-        #Function for handling connections. This will be used to create threads
-        def clientthread(conn):
-            conn.setblocking(0)
-            timeout = 1
-            #infinite loop so that function do not terminate and thread do not end.
-            while True:
-                #Receiving from client
-                # data = int.from_bytes(conn.recv(1024), byteorder='big')
-                begin = time.time()
-                data = b""
-                while True:
-                    if data and time.time() - begin > timeout:
-                        break
-                    if time.time() - begin > timeout * 2:
-                        break
-                    
-                    try:
-                        packet = conn.recv(4096)
-                        if packet:
-                            data += packet
-                    except:
-                        pass
-                if data:
-                    self.gradient = pickle.loads(data)
-                if not data: 
-                    break
-
-                # self.gradient += data
-                print('gradient : ', repr(self.gradient))
-
-                self.run_client()
-                conn.setblocking(1)
-                gradient_ = pickle.dumps(self.gradient)
-                try :
-                    #Set the whole string
-                    conn.sendall(gradient_)
-                except socket.error:
-                    #Send failed
-                    print('Send failed')
-                    sys.exit()
-            #came out of loop
-            conn.close()
-
         #now keep talking with the client
         while True:
             #wait to accept a connection - blocking call
@@ -79,77 +40,34 @@ class RSU:
             print('Connected with ' + addr[0] + ':' + str(addr[1]))
             
             #start new thread takes 1st argument as a function name to be run, second is the tuple of arguments to the function.
-            _thread.start_new_thread(clientthread, (conn,))
+            _thread.start_new_thread(self.client_thread, (conn,))
 
         s.close()
 
-    def run_client(self):
-        #create an INET, STREAMing socket
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        except socket.error:
-            print('Failed to create socket')
-            sys.exit()
-            
-        print('Socket Created')
+    def client_thread(self, worker_conn):
+        data = wait_for_message(worker_conn)
+        print('gradient received from worker')
+        self.gradient = data
 
+        # RSU Logic Here
+
+        # build connection with cloud server
         host = socket.gethostname()
         port = 9999
+        cloud_server_conn = build_connection(host, port)
 
-        try:
-            remote_ip = socket.gethostbyname(host)
+        send_message(pickle.dumps(self.gradient), cloud_server_conn)
+        print('gradient sent to Cloud Server')
+        
+        data = wait_for_message(cloud_server_conn)
+        print('gradient received from Cloud Server')
+        self.gradient = data
 
-        except socket.gaierror:
-            #could not resolve
-            print('Hostname could not be resolved. Exiting')
-            sys.exit()
+        send_message(pickle.dumps(self.gradient), worker_conn)
+        print('gradient sent to worker')
 
-        #Connect to remote server
-        s.connect((remote_ip , port))
-
-        print('Socket Connected to ' + host + ' on ip ' + remote_ip)
-
-        #Send some data to remote server
-        message = self.gradient
-        gradient_ = pickle.dumps(self.gradient)
-
-        try :
-            #Set the whole string
-            s.sendall(gradient_)
-        except socket.error:
-            #Send failed
-            print('Send failed')
-            sys.exit()
-
-        print('Message send successfully')
-
-        s.setblocking(0)
-        timeout = 1
-        begin = None
-        #Now receive data
-        data = b""
-        while True:
-            if data and begin is None:
-                begin = time.time()
-            if data and time.time() - begin > timeout:
-                break
-            # if time.time() - begin > timeout * 2:
-            #     break
-            
-            try:
-                packet = s.recv(4096)
-                if packet:
-                    data += packet
-            except:
-                pass
-        if data:
-            self.gradient = pickle.loads(data)
-
-        print('gradient received from Central Server : ', self.gradient)
-
-        s.close()
+        cloud_server_conn.close()
 
 if __name__ == "__main__":
     rsu = RSU()
-
-    rsu.run_server()
+    rsu.process()
