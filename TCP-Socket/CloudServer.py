@@ -3,12 +3,14 @@ import sys
 import _thread
 import pickle
 import time
+from Utils import *
 
 class CloudServer:
+
     def __init__(self):
         self.gradient = None
 
-    def run_server(self):
+    def process(self):
         HOST = socket.gethostname()	# Symbolic name meaning all available interfaces
         PORT = 9999	# Arbitrary non-privileged port
 
@@ -28,45 +30,6 @@ class CloudServer:
         s.listen(10)
         print('Socket now listening')
 
-        #Function for handling connections. This will be used to create threads
-        def clientthread(conn):
-            #infinite loop so that function do not terminate and thread do not end.
-            while True:
-                conn.setblocking(0)
-                timeout = 1
-                begin = time.time()
-                #Now receive data
-                data = b""
-                while True:
-                    if data and time.time() - begin > timeout:
-                        break
-                    if time.time() - begin > timeout * 2:
-                        break
-                    
-                    try:
-                        packet = conn.recv(4096)
-                        if packet:
-                            data += packet
-                    except:
-                        pass
-                
-                if data:
-                    self.gradient = pickle.loads(data)
-
-                print('gradient received from RSU : ', repr(self.gradient))
-
-                # conn.setblocking(1)
-                gradient_ = pickle.dumps(self.gradient)
-                try :
-                    #Set the whole string
-                    conn.sendall(gradient_)
-                except socket.error:
-                    #Send failed
-                    print('Send failed')
-                    sys.exit()
-            #came out of loop
-            conn.close()
-
         #now keep talking with the client
         while True:
             #wait to accept a connection - blocking call
@@ -74,10 +37,21 @@ class CloudServer:
             print('Connected with ' + addr[0] + ':' + str(addr[1]))
             
             #start new thread takes 1st argument as a function name to be run, second is the tuple of arguments to the function.
-            _thread.start_new_thread(clientthread, (conn,))
+            _thread.start_new_thread(self.client_thread, (conn,))
 
         s.close()
 
+    def client_thread(self, conn):
+        data = wait_for_message(conn)
+        print('gradient received from RSU')
+        self.gradient = data
+
+        # Cloud Server Logic Here
+
+        send_message(pickle.dumps(self.gradient), conn)
+        print('gradient sent to RSU')
+
+
 if __name__ == "__main__":
     cloud_server = CloudServer()
-    cloud_server.run_server()
+    cloud_server.process()
