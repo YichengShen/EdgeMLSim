@@ -75,11 +75,11 @@ def run_client(server_host, server_port, instance, message=None):
         selectors.EVENT_READ | selectors.EVENT_WRITE,
     )
     keep_running = True
-    sent = False
+    sent = False # to keep track of only sending once
     while keep_running:
         for key, mask in mysel.select(timeout=1):
             connection = key.fileobj
-            client_address = connection.getpeername()
+            # client_address = connection.getpeername()
             # print('client({})'.format(client_address))
 
             if mask & selectors.EVENT_READ:
@@ -88,27 +88,28 @@ def run_client(server_host, server_port, instance, message=None):
                 instance.receive_model(data)
                 keep_running = False
                 
-            if mask & selectors.EVENT_WRITE:
+            if mask & selectors.EVENT_WRITE and not(sent):
                 if message is not None:
-                    sock.sendall(message)
+                    # is it ok to block when we send?
+                    send_data(sock, message)
                     keep_running = False
                 else:
-                    if not sent:
-                        sock.sendall(b'1')
-                        sent = True
+                    send_data(sock, b'1')
+                sent = True
 
-    print('shutting down')
+    print('shutting down connection')
     mysel.unregister(connection)
     connection.close()
     mysel.close()
 
+def send_data(sock, message):
+    sock.setblocking(True)
+    sock.sendall(message)
+    sock.setblocking(False)
 
 def receive_data(connection):
     data = b""
-    packet = None
     while True:
-        if packet == b'1':
-            break
         try:
             packet = connection.recv(4096)
         except:
@@ -128,6 +129,5 @@ def create_socket(host, port):
     except socket.error:
         print('Failed to create socket')
         sys.exit()
-    # sock.setblocking(False)
     return sock
 

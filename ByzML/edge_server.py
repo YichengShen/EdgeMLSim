@@ -60,7 +60,10 @@ class Edge_Server:
         Returns:
 
         """
-        connection.sendall(self.model)
+        model = pickle.dumps(self.model)
+        connection.setblocking(True)
+        connection.sendall(model)
+        connection.setblocking(False)
 
     def collect(self, gradients):
         """

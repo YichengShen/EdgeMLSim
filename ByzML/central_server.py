@@ -39,7 +39,9 @@ class Central_Server:
 
         """
         model = pickle.dumps(self.model)
+        connection.setblocking(True)
         connection.sendall(model)
+        connection.setblocking(False)
 
     def collect(self, gradients):
         """
@@ -52,9 +54,10 @@ class Central_Server:
 
         """
         self.gradients_received.append(pickle.loads(gradients))
-        print(self.gradients_received)
-        print('*************')
-        print(len(self.gradients_received))
+        # print(self.gradients_received)
+        print("Gradients received")
+        print('-----------------------------------------------')
+        print(f"Number of gradients received: {len(self.gradients_received)}")
 
     def aggregate(self):
         pass
