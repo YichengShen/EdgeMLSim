@@ -20,11 +20,14 @@ def run_server(host, port, instance):
             if data == b'1':
                 # Receive model request
                 print('Received model request')
-                instance.send_model(connection)
+                model = pickle.dumps(instance.model)
+                connection.setblocking(True)
+                connection.sendall(model)
+                connection.setblocking(False)
                 print('Model sent')
             else:
                 # Receive gradients
-                instance.collect(data)
+                instance.collect(pickle.loads(data))
         else:
             # Interpret empty result as closed connection
             print('  closing connection with client')
@@ -85,13 +88,14 @@ def run_client(server_host, server_port, instance, message=None):
             if mask & selectors.EVENT_READ:
                 print('  ready to read')
                 data = receive_data(connection)
-                instance.receive_model(data)
+                instance.receive_model(pickle.loads(data))
                 keep_running = False
                 
             if mask & selectors.EVENT_WRITE and not(sent):
                 if message is not None:
                     # is it ok to block when we send?
-                    send_data(sock, message)
+                    gradients = pickle.dumps(message)
+                    send_data(sock, gradients)
                     keep_running = False
                 else:
                     send_data(sock, b'1')

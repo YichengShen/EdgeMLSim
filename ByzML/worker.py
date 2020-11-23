@@ -1,7 +1,6 @@
 import tcp
 from constants import constants
 from mxnet import nd
-import pickle
 
 
 class Worker:
@@ -39,15 +38,14 @@ class Worker:
         Returns:
 
         """
-        gradients = pickle.dumps(self.gradients)
-        tcp.run_client(host, port, self, gradients)
+        tcp.run_client(host, port, self, self.gradients)
 
     def request_model(self, host='localhost', port=6666):
         tcp.run_client(host, port, self)
 
     def receive_model(self, model):
         print("receive model")
-        self.model = pickle.loads(model)
+        self.model = model
         print(self.model)
 
 

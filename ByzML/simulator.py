@@ -7,13 +7,13 @@ def simulate():
 
     edge_server = Edge_Server()
 
-    # edge_server.upload()
+    edge_server.upload()
     # aggregate
     # edge_server.request_model()
     
-    worker = Worker()
-    edge_server.request_model()
-    worker.request_model()
+    # worker = Worker()
+    # edge_server.request_model()
+    # worker.request_model()
     # find gradient
     # worker.upload()
     

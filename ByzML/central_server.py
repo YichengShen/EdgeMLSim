@@ -1,5 +1,4 @@
 import tcp
-import pickle
 from mxnet import nd
 
 
@@ -28,20 +27,17 @@ class Central_Server:
                             [nd.random_normal(0,1,shape=(10))]
         self.gradients_received = []
 
-    def send_model(self, connection):
-        """
-        Send model to edge servers.
+    # def send_model(self, connection):
+    #     """
+    #     Send model to edge servers.
 
-        Parameters:
-            - model:
+    #     Parameters:
+    #         - model:
 
-        Returns:
+    #     Returns:
 
-        """
-        model = pickle.dumps(self.model)
-        connection.setblocking(True)
-        connection.sendall(model)
-        connection.setblocking(False)
+    #     """
+    #     pass
 
     def collect(self, gradients):
         """
@@ -53,11 +49,11 @@ class Central_Server:
         Returns:
 
         """
-        self.gradients_received.append(pickle.loads(gradients))
+        self.gradients_received.append(gradients)
         # print(self.gradients_received)
-        print("Gradients received")
-        print('-----------------------------------------------')
-        print(f"Number of gradients received: {len(self.gradients_received)}")
+        # print("Gradients received")
+        # print('-----------------------------------------------')
+        # print(f"Number of gradients received: {len(self.gradients_received)}")
 
     def aggregate(self):
         pass

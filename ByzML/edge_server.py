@@ -1,7 +1,6 @@
 import tcp
 from constants import constants
 from mxnet import nd
-import pickle
 
 
 class Edge_Server:
@@ -39,8 +38,7 @@ class Edge_Server:
         Returns:
 
         """
-        gradients = pickle.dumps(self.gradients)
-        tcp.run_client(constants['HOST'], constants['PORT'], self, gradients)
+        tcp.run_client(constants['HOST'], constants['PORT'], self, self.gradients)
 
     def request_model(self):
         tcp.run_client(constants['HOST'], constants['PORT'], self)
@@ -50,20 +48,17 @@ class Edge_Server:
         self.model = pickle.loads(model)
         print(self.model)
 
-    def send_model(self, connection):
-        """
-        Send model to workers.
+    # def send_model(self, connection):
+    #     """
+    #     Send model to workers.
 
-        Parameters:
-            - connection: 
+    #     Parameters:
+    #         - connection: 
 
-        Returns:
+    #     Returns:
 
-        """
-        model = pickle.dumps(self.model)
-        connection.setblocking(True)
-        connection.sendall(model)
-        connection.setblocking(False)
+    #     """
+    #     pass
 
     def collect(self, gradients):
         """
