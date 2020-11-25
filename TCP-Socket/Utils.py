@@ -26,10 +26,11 @@ def build_connection(host, port):
     return s
 
 def send_message(data, conn):
+    msg = pickle.dumps(data)
     conn.setblocking(1)
     try :
         #Set the whole string
-        conn.sendall(data)
+        conn.sendall(msg)
     except socket.error:
         #Send failed
         print('Send failed')

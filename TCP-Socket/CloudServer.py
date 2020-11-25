@@ -1,8 +1,6 @@
 import socket
 import sys
 import _thread
-import pickle
-import time
 from Utils import *
 
 class CloudServer:
@@ -43,13 +41,13 @@ class CloudServer:
 
     def client_thread(self, conn):
         data = wait_for_message(conn)
-        print('gradient received from RSU')
+        print('gradient received from edge server')
         self.gradient = data
 
         # Cloud Server Logic Here
 
         send_message(pickle.dumps(self.gradient), conn)
-        print('gradient sent to RSU')
+        print('gradient sent to edge server')
 
 
 if __name__ == "__main__":

@@ -1,11 +1,9 @@
 import socket	#for sockets
 import sys	#for exit
 import _thread
-import pickle
-import time
 from Utils import *
 
-class RSU:
+class EdgeServer:
     HOST = socket.gethostname()
     PORT = 9999
 
@@ -15,7 +13,7 @@ class RSU:
 
     def process(self):
         HOST = socket.gethostname()	# Symbolic name meaning all available interfaces
-        PORT = int(sys.argv[1])	# Arbitrary non-privileged port
+        PORT = 6666	# Arbitrary non-privileged port
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         print('Socket created')
@@ -69,5 +67,5 @@ class RSU:
         cloud_server_conn.close()
 
 if __name__ == "__main__":
-    rsu = RSU()
-    rsu.process()
+    edge_server = EdgeServer()
+    edge_server.process()
