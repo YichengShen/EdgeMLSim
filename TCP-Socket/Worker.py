@@ -10,7 +10,6 @@ class Worker:
         self.gradient = None
 
     def process(self):
-        # Vehicle logic here
         gradient = [nd.random_normal(0,1,shape=(128,784))] +\
                     [nd.random_normal(0,1,shape=(128))] +\
                     [nd.random_normal(0,1,shape=(64,128))] +\
@@ -18,19 +17,30 @@ class Worker:
                     [nd.random_normal(0,1,shape=(10,64))] +\
                     [nd.random_normal(0,1,shape=(10))]
 
-        # Build connection with RSU
+        # Build connection with edge server
         host = socket.gethostname()
-        port = 6666
-        edge_server_conn = build_connection(host, port)
-
-        send_message(pickle.dumps(gradient), edge_server_conn)
-        print('gradient sent to edge server')
-
-        data = wait_for_message(edge_server_conn)
-        print('gradient received from edge server')
-        self.gradient = data
+        port = 5555
         
-        edge_server_conn.close()
+        while True:
+            edge_server_conn = client_build_connection(host, port)
+            print('connection established')
+
+            parameter = wait_for_message(edge_server_conn)
+            print('received gradient')
+            try:
+                send_message(gradient, edge_server_conn)
+            except:
+                break
+            print('gradient sent to edge server')
+
+            # Wait for a confirmation message from edge server
+            wait_for_message(edge_server_conn)
+            print('confirmation received. Closing.')
+            edge_server_conn.close()
+
+    def compute(self, parameter):
+        # TODO: replace this
+        return parameter
 
 if __name__ == "__main__":
     worker = Worker()
