@@ -1,54 +1,51 @@
 import socket
 import sys
-import _thread
+import threading
+from mxnet import nd
 from Utils import *
 
 class CloudServer:
-
     def __init__(self):
-        self.gradient = None
+        self.parameter = [nd.random_normal(0,1,shape=(128,784))] +\
+                    [nd.random_normal(0,1,shape=(128))] +\
+                    [nd.random_normal(0,1,shape=(64,128))] +\
+                    [nd.random_normal(0,1,shape=(64))] +\
+                    [nd.random_normal(0,1,shape=(10,64))] +\
+                    [nd.random_normal(0,1,shape=(10))]
+        self.buffer = []
+        self.cv = threading.Condition()
+        self.terminated = False
+        self.connections = []
+        self.num_edge_servers = 1
+        self.num_epochs = 3
 
     def process(self):
-        HOST = socket.gethostname()	# Symbolic name meaning all available interfaces
-        PORT = 9999	# Arbitrary non-privileged port
+        HOST = socket.gethostname()
+        PORT = 9999
+        connection_thread = threading.Thread(target=server_handle_connection, args=(HOST, PORT, self, True))
+        connection_thread.start()
 
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print('Socket created')
+        with self.cv:
+            while len(self.connections) < 1:
+                self.cv.wait()
 
-        #Bind socket to local host and port
-        try:
-            s.bind((HOST, PORT))
-        except socket.error as msg:
-            print('Bind failed. Error :', msg)
-            sys.exit()
-	
-        print('Socket bind complete')
+        for i in range(self.num_epochs):
+            for conn in self.connections:
+                send_message(self.parameter, self.connections[0])
+            print('sent parameter to edge servers')
 
-        #Start listening on socket
-        s.listen(10)
-        print('Socket now listening')
+            # wait for response from edge servers
+            with self.cv:
+                while len(self.buffer) < self.num_edge_servers:
+                    self.cv.wait()
+            print('received responses from edge servers')
 
-        #now keep talking with the client
-        while True:
-            #wait to accept a connection - blocking call
-            conn, addr = s.accept()
-            print('Connected with ' + addr[0] + ':' + str(addr[1]))
-            
-            #start new thread takes 1st argument as a function name to be run, second is the tuple of arguments to the function.
-            _thread.start_new_thread(self.client_thread, (conn,))
+            self.parameter = self.aggregate()
 
-        s.close()
+        self.terminated = True
 
-    def client_thread(self, conn):
-        data = wait_for_message(conn)
-        print('gradient received from edge server')
-        self.gradient = data
-
-        # Cloud Server Logic Here
-
-        send_message(pickle.dumps(self.gradient), conn)
-        print('gradient sent to edge server')
-
+    def aggregate(self):
+        return self.buffer.pop()
 
 if __name__ == "__main__":
     cloud_server = CloudServer()

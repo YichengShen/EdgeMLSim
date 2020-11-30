@@ -1,70 +1,73 @@
 import socket	#for sockets
 import sys	#for exit
-import _thread
+import threading
 from Utils import *
 
 class EdgeServer:
-    HOST = socket.gethostname()
-    PORT = 9999
-
     def __init__(self):
         self.model = 0
         self.gradient = 0
+        self.buffer = []
+        self.cv = threading.Condition()
+        self.terminated = False
+        self.connections = []
+        self.num_epochs = 3
+        self.num_of_workers = 3
 
     def process(self):
-        HOST = socket.gethostname()	# Symbolic name meaning all available interfaces
-        PORT = 6666	# Arbitrary non-privileged port
+        HOST = socket.gethostname()
+        WORKER_PORT = 6666
+        CLOUD_SERVER_PORT = 9999
+        threading.Thread(target=server_handle_connection, args=(HOST, WORKER_PORT, self, False)).start()
 
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print('Socket created')
+        # build_connection with cloud server
+        central_server_conn = client_build_connection(HOST, CLOUD_SERVER_PORT)
 
-        #Bind socket to local host and port
-        try:
-            s.bind((HOST, PORT))
-        except socket.error as msg:
-            print('Bind failed. Error :', msg)
-            sys.exit()
-        print(PORT)
-        print('Socket bind complete')
+        for i in range(self.num_epochs):
+            # wait for at least num_of_workers workers to join
+            with self.cv:
+                while len(self.connections) < self.num_of_workers:
+                    self.cv.wait()
 
-        #Start listening on socket
-        s.listen(10)
-        print('Socket now listening')
+            parameter = wait_for_message(central_server_conn)
+            print('received parameter from central server')
 
-        #now keep talking with the client
-        while True:
-            #wait to accept a connection - blocking call
-            conn, addr = s.accept()
-            print('Connected with ' + addr[0] + ':' + str(addr[1]))
+            # send parameters to all connected workers
+            for conn in self.connections:
+                send_message(parameter, conn)
+            print('sent messages to workers')
             
-            #start new thread takes 1st argument as a function name to be run, second is the tuple of arguments to the function.
-            _thread.start_new_thread(self.client_thread, (conn,))
+            # wait for gradients from workers
+            with self.cv:
+                while len(self.buffer) < self.num_of_workers:
+                    self.cv.wait()
+            print('received responses from workers')
 
-        s.close()
+            reduced_gradient = self.reduce()
+            aggregated_gradient = self.aggregate(reduced_gradient)
 
-    def client_thread(self, worker_conn):
-        data = wait_for_message(worker_conn)
-        print('gradient received from worker')
-        self.gradient = data
+            # send aggregated result to server
+            send_message(aggregated_gradient, central_server_conn)
+            print('sent aggregated result to central server')
 
-        # RSU Logic Here
+            # Edge server has to close the connections with workers every time
+            for conn in self.connections:
+                send_message(b'1', conn)
+                conn.close()
+            self.connections = []
 
-        # build connection with cloud server
-        host = socket.gethostname()
-        port = 9999
-        cloud_server_conn = build_connection(host, port)
-
-        send_message(pickle.dumps(self.gradient), cloud_server_conn)
-        print('gradient sent to Cloud Server')
         
-        data = wait_for_message(cloud_server_conn)
-        print('gradient received from Cloud Server')
-        self.gradient = data
+        central_server_conn.close()
+        self.terminated = True
 
-        send_message(pickle.dumps(self.gradient), worker_conn)
-        print('gradient sent to worker')
+    def reduce(self):
+        # TODO: replace this
+        with self.cv:
+            return self.buffer.pop()
 
-        cloud_server_conn.close()
+    def aggregate(self, data):
+        # TODO: replace this
+        return data
 
 if __name__ == "__main__":
     edge_server = EdgeServer()
