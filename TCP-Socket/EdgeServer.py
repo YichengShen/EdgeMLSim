@@ -1,6 +1,7 @@
 import socket	#for sockets
 import sys	#for exit
 import threading
+from Msg import *
 from Utils import *
 
 class EdgeServer:
@@ -11,7 +12,7 @@ class EdgeServer:
         self.cv = threading.Condition()
         self.terminated = False
         self.connections = []
-        self.num_epochs = 3
+        self.num_epochs = 5
         self.num_of_workers = 3
 
     def process(self):
@@ -24,17 +25,18 @@ class EdgeServer:
         central_server_conn = client_build_connection(HOST, CLOUD_SERVER_PORT)
 
         for i in range(self.num_epochs):
+            msg = wait_for_message(central_server_conn)
+            parameter = msg.get_payload()
+            print('received parameter from central server')
+
             # wait for at least num_of_workers workers to join
             with self.cv:
                 while len(self.connections) < self.num_of_workers:
                     self.cv.wait()
 
-            parameter = wait_for_message(central_server_conn)
-            print('received parameter from central server')
-
             # send parameters to all connected workers
             for conn in self.connections:
-                send_message(parameter, conn)
+                send_message(conn, InstanceType.EDGE_SERVER, PayloadType.PARAMETER, parameter)
             print('sent messages to workers')
             
             # wait for gradients from workers
@@ -47,14 +49,16 @@ class EdgeServer:
             aggregated_gradient = self.aggregate(reduced_gradient)
 
             # send aggregated result to server
-            send_message(aggregated_gradient, central_server_conn)
+            send_message(central_server_conn, InstanceType.EDGE_SERVER, PayloadType.GRADIENT, aggregated_gradient)
             print('sent aggregated result to central server')
 
             # Edge server has to close the connections with workers every time
             for conn in self.connections:
-                send_message(b'1', conn)
+                send_message(conn, InstanceType.EDGE_SERVER, PayloadType.CONNECTION_SIGNAL, b'1')
                 conn.close()
+
             self.connections = []
+            self.buffer = []
 
         
         central_server_conn.close()
@@ -63,7 +67,8 @@ class EdgeServer:
     def reduce(self):
         # TODO: replace this
         with self.cv:
-            return self.buffer.pop()
+            msg = self.buffer.pop()
+            return msg.payload
 
     def aggregate(self, data):
         # TODO: replace this

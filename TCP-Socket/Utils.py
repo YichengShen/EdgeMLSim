@@ -3,6 +3,7 @@ import socket
 import sys
 import threading
 import time
+from Msg import *
 
 def server_handle_connection(host, port, instance, persistent_connection):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -30,15 +31,21 @@ def server_handle_connection(host, port, instance, persistent_connection):
             if instance.terminated:
                 break 
 
+    # Close all exisiting connections
+    for conn in instance.connections:
+        conn.close()
+
     print('Connection loop exit')
+
     s.close()
 
 def connection_thread(conn, instance, persistent_connection):
     while not instance.terminated:
-        data = wait_for_message(conn)
-        with instance.cv:
-            instance.buffer.append(data)
-            instance.cv.notify()
+        msg = wait_for_message(conn)
+        if msg:
+            with instance.cv:
+                instance.buffer.append(msg)
+                instance.cv.notify()
         if not persistent_connection:
             break
 
@@ -62,12 +69,13 @@ def client_build_connection(host, port):
     s.connect((remote_ip, port))
     return s
 
-def send_message(data, conn):
-    msg = pickle.dumps(data)
+def send_message(conn, source_type, payload_type, payload):
+    msg = Msg(source_type, payload_type, payload)
+    data = pickle.dumps(msg)
     try :
         #Set the whole string
         conn.setblocking(True)
-        conn.sendall(msg)
+        conn.sendall(data)
     except socket.error:
         #Send failed
         print(socket.error)
@@ -89,4 +97,4 @@ def wait_for_message(conn):
                 break
             else:
                 pass
-    return pickle.loads(data)
+    return pickle.loads(data) if data else None

@@ -2,6 +2,7 @@ import socket
 import sys
 import threading
 from mxnet import nd
+from Msg import *
 from Utils import *
 
 class CloudServer:
@@ -17,7 +18,7 @@ class CloudServer:
         self.terminated = False
         self.connections = []
         self.num_edge_servers = 1
-        self.num_epochs = 3
+        self.num_epochs = 5
 
     def process(self):
         HOST = socket.gethostname()
@@ -31,7 +32,7 @@ class CloudServer:
 
         for i in range(self.num_epochs):
             for conn in self.connections:
-                send_message(self.parameter, self.connections[0])
+                send_message(self.connections[0], InstanceType.CLOUD_SERVER, PayloadType.PARAMETER, self.parameter)
             print('sent parameter to edge servers')
 
             # wait for response from edge servers
@@ -43,9 +44,11 @@ class CloudServer:
             self.parameter = self.aggregate()
 
         self.terminated = True
+        print(self.parameter)
 
     def aggregate(self):
-        return self.buffer.pop()
+        msg = self.buffer.pop()
+        return msg.payload
 
 if __name__ == "__main__":
     cloud_server = CloudServer()
