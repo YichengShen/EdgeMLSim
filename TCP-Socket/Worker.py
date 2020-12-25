@@ -4,6 +4,7 @@ import socket	#for sockets
 from mxnet import nd
 from Msg import *
 from Utils import *
+import time
 
 class Worker:
 
@@ -23,13 +24,8 @@ class Worker:
         port = 6666
         
         while True:
-            edge_server_conn = client_build_connection(host, port)
+            edge_server_conn, msg = client_build_connection(host, port)
             print('connection established')
-
-            msg = wait_for_message(edge_server_conn)
-            if not msg:
-                edge_server_conn.close()
-                break
             
             parameter = msg.get_payload()
             print('received parameter')
@@ -42,9 +38,11 @@ class Worker:
 
             # Wait for a confirmation message from edge server
             msg = wait_for_message(edge_server_conn)
-            if msg.get_payload_type == PayloadType.CONNECTION_SIGNAL:
+            if msg.get_payload_type() == PayloadType.CONNECTION_SIGNAL:
                 print('confirmation received. Closing.')
                 edge_server_conn.close()
+
+            # time.sleep(2)
 
     def compute(self, parameter):
         # TODO: replace this

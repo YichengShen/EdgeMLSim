@@ -7,6 +7,7 @@ from Utils import *
 
 class CloudServer:
     def __init__(self):
+        self.type = InstanceType.CLOUD_SERVER
         self.parameter = [nd.random_normal(0,1,shape=(128,784))] +\
                     [nd.random_normal(0,1,shape=(128))] +\
                     [nd.random_normal(0,1,shape=(64,128))] +\
@@ -18,7 +19,6 @@ class CloudServer:
         self.terminated = False
         self.connections = []
         self.num_edge_servers = 1
-        self.num_epochs = 5
 
     def process(self):
         HOST = socket.gethostname()

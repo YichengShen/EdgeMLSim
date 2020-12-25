@@ -27,6 +27,7 @@ def server_handle_connection(host, port, instance, persistent_connection):
             threading.Thread(target=connection_thread, args=(conn, instance, persistent_connection)).start()
             with instance.cv:
                 instance.connections.append(conn)
+                send_message(conn, instance.type, PayloadType.PARAMETER, instance.parameter)
                 instance.cv.notify()
         except:
             if instance.terminated:
@@ -68,20 +69,26 @@ def client_build_connection(host, port):
 
     #Connect to remote server
     s.connect((remote_ip, port))
-    return s
+    #Wait for parameters from remote server
+    params = wait_for_message(s)
+    return s, params
 
 def send_message(conn, source_type, payload_type, payload):
     msg = Msg(source_type, payload_type, payload)
     data = pickle.dumps(msg)
-    try :
-        #Set the whole string
-        conn.setblocking(True)
-        conn.sendall(data)
-    except socket.error:
-        #Send failed
-        print(socket.error)
-        print('Send failed')
-        sys.exit()
+
+    succeed = False
+    while not succeed:
+        try :
+            #Set the whole string
+            conn.setblocking(True)
+            conn.sendall(data)
+            succeed = True
+        except socket.error as e:
+            #Send failed
+            print(e)
+            print('Send failed; retry')
+            succeed = False
 
 def wait_for_message(conn):
     data = b""
