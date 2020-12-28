@@ -77,18 +77,17 @@ def send_message(conn, source_type, payload_type, payload):
     msg = Msg(source_type, payload_type, payload)
     data = pickle.dumps(msg)
 
-    succeed = False
-    while not succeed:
+    b = 0
+    while b < len(data):
         try :
             #Set the whole string
             conn.setblocking(True)
-            conn.sendall(data)
-            succeed = True
+            b += conn.send(data[b:])
         except socket.error as e:
             #Send failed
+            time.sleep(1)
             print(e)
             print('Send failed; retry')
-            succeed = False
 
 def wait_for_message(conn):
     data = b""
