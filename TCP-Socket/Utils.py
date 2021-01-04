@@ -27,7 +27,7 @@ def server_handle_connection(host, port, instance, persistent_connection):
             threading.Thread(target=connection_thread, args=(conn, instance, persistent_connection)).start()
             with instance.cv:
                 instance.connections.append(conn)
-                send_message(conn, instance.type, PayloadType.PARAMETER, instance.parameter)
+                send_message(conn, instance.type, PayloadType.PARAMETER, instance.model)
                 instance.cv.notify()
         except:
             if instance.terminated:
@@ -46,7 +46,7 @@ def connection_thread(conn, instance, persistent_connection):
         msg = wait_for_message(conn)
         if msg:
             with instance.cv:
-                instance.buffer.append(msg)
+                instance.accumulative_gradients.append(msg.payload)
                 instance.cv.notify()
         if not persistent_connection:
             break

@@ -1,7 +1,5 @@
-#Socket client example in python
-
 import socket	#for sockets
-from mxnet import nd
+from mxnet import nd, gluon, autograd
 from Msg import *
 from Utils import *
 import time
@@ -9,45 +7,54 @@ import time
 class Worker:
 
     def __init__(self):
-        self.gradient = None
+        self.model = None
 
-    def process(self):
-        gradient = [nd.random_normal(0,1,shape=(128,784))] +\
-                    [nd.random_normal(0,1,shape=(128))] +\
-                    [nd.random_normal(0,1,shape=(64,128))] +\
-                    [nd.random_normal(0,1,shape=(64))] +\
-                    [nd.random_normal(0,1,shape=(10,64))] +\
-                    [nd.random_normal(0,1,shape=(10))]
+    def process(self, data):
 
         # Build connection with edge server
         host = socket.gethostname()
         port = 6666
         
-        while True:
-            edge_server_conn, msg = client_build_connection(host, port)
-            print('connection established')
-            
-            parameter = msg.get_payload()
-            print('received parameter')
-            
-            try:
-                send_message(edge_server_conn, InstanceType.WORKER, PayloadType.GRADIENT, parameter)
-            except:
-                break
-            print('gradient sent to edge server')
+        # while True: ^^^
 
-            # Wait for a confirmation message from edge server
-            msg = wait_for_message(edge_server_conn)
-            if msg.get_payload_type() == PayloadType.CONNECTION_SIGNAL:
-                print('confirmation received. Closing.')
-                edge_server_conn.close()
+        edge_server_conn, msg = client_build_connection(host, port)
+        print('connection established')
+        
+        self.model = msg.get_payload()
+        print('received parameter')
 
-            # time.sleep(2)
+        gradients = self.compute(self.model, data)
+        
+        try:
+            send_message(edge_server_conn, InstanceType.WORKER, PayloadType.GRADIENT, gradients)
+        except:
+            # break ^^^
+            return
+        print('gradient sent to edge server')
 
-    def compute(self, parameter):
-        # TODO: replace this
-        return parameter
+        # Wait for a confirmation message from edge server
+        msg = wait_for_message(edge_server_conn)
+        if msg.get_payload_type() == PayloadType.CONNECTION_SIGNAL:
+            print('confirmation received. Closing.')
+            edge_server_conn.close()
+
+        # time.sleep(2)
+
+    def compute(self, model, data):
+        X, y = data
+        loss_object = gluon.loss.SoftmaxCrossEntropyLoss()
+
+        with autograd.record():
+            output = self.model(X)
+            loss = loss_object(output, y)
+        loss.backward()
+
+        grad_collect = []
+        for param in self.model.collect_params().values():
+            if param.grad_req != 'null':
+                grad_collect.append(param.grad().copy())
+        return grad_collect
 
 if __name__ == "__main__":
     worker = Worker()
-    worker.process()
+    worker.process([1, 2])
