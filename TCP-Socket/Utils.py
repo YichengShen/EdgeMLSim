@@ -1,10 +1,15 @@
 import pickle
+import struct
 import socket
 import sys
 import threading
 import time
 from Msg import *
+from mxnet import nd
+import numpy as np
 
+# Global Var for ease of testing
+SERVER_PORT = 9945
 
 def server_handle_connection(host, port, instance, persistent_connection):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -27,7 +32,7 @@ def server_handle_connection(host, port, instance, persistent_connection):
             threading.Thread(target=connection_thread, args=(conn, instance, persistent_connection)).start()
             with instance.cv:
                 instance.connections.append(conn)
-                send_message(conn, instance.type, PayloadType.PARAMETER, instance.model)
+                send_message(conn, instance.type, PayloadType.PARAMETER, instance.parameter)
                 instance.cv.notify()
         except:
             if instance.terminated:
@@ -77,31 +82,79 @@ def send_message(conn, source_type, payload_type, payload):
     msg = Msg(source_type, payload_type, payload)
     data = pickle.dumps(msg)
 
-    b = 0
-    while b < len(data):
-        try :
-            #Set the whole string
-            conn.setblocking(True)
-            b += conn.send(data[b:])
-        except socket.error as e:
-            #Send failed
-            time.sleep(1)
-            print(e)
-            print('Send failed; retry')
+    # b = 0
+    # while b < len(data):
+    #     try :
+    #         #Set the whole string
+    #         conn.setblocking(True)
+    #         b += conn.send(data[b:])
+    #     except socket.error as e:
+    #         #Send failed
+    #         time.sleep(1)
+    #         print(e)
+    #         print('Send failed; retry')
+
+    # Add length of data as prefix to the msg
+    s = struct.pack('>I', len(data)) + data
+    conn.sendall(s)
+
 
 def wait_for_message(conn):
-    data = b""
-    while True:
-        try:
-            conn.setblocking(False)
-            packet = conn.recv(4096)
-            if packet:
-                data += packet
-            else:
-                break
-        except:
-            if data: 
-                break
-            else:
-                pass
-    return pickle.loads(data) if data else None
+    # Retreat the length of the data (The 4-bytes prefix)
+    msglen = wait_for_message_helper(conn, 4)
+    if not msglen:
+        return None
+    msglen = struct.unpack('>I', msglen[0])[0]
+
+    # Retreat data using its length
+    data = wait_for_message_helper(conn, msglen)
+    return pickle.loads(b"".join(data))
+
+def wait_for_message_helper(conn, n):
+    data = []
+    # Retreat data of length n
+    while len(b"".join(data)) < n:
+        packet = conn.recv(n - len(b"".join(data)))
+        if not packet:
+            return None
+        data.append(packet)
+    return data
+
+# def wait_for_message(conn):
+#     data = b""
+#     while True:
+#         try:
+#             conn.setblocking(False)
+#             packet = conn.recv(4096)
+#             if packet:
+#                 data += packet
+#             else:
+#                 break
+#         except Exception as e:
+#             print(e)
+#             if data: 
+#                 break
+#             else:
+#                 pass
+#     return pickle.loads(data) if data else None
+
+
+# def wait_for_message(conn):
+#     data = []
+#     while True:
+#         packet = conn.recv(4096)
+#         data.append(packet)
+#         if len(packet) < 4096: 
+#             print(len(packet))
+#             break
+        
+#     # try:
+#     data_arr = pickle.loads(b"".join(data))
+#     # except:
+#     #     return Msg(InstanceType.EDGE_SERVER, PayloadType.GRADIENT, [nd.random_normal(0,1,shape=(128,784))] +\
+#     #                 [nd.random_normal(0,1,shape=(128))] +\
+#     #                 [nd.random_normal(0,1,shape=(64,128))] +\
+#     #                 [nd.random_normal(0,1,shape=(64))] +\
+#     #                 [nd.random_normal(0,1,shape=(10,64))] +\
+#     #                 [nd.random_normal(0,1,shape=(10))])
+#     return data_arr if data_arr else None

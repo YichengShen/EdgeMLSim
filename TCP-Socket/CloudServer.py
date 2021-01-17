@@ -1,31 +1,49 @@
-import yaml
 import socket
 import sys
 import threading
 import mxnet as mx
 from mxnet import nd, gluon
+import numpy as np
+import tensorflow as tf
 from Msg import *
 from Utils import *
+from NeuralNetwork import Neural_Network
+import yaml
+
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Dense
+from tensorflow.python.keras.layers import deserialize, serialize
+from tensorflow.python.keras.saving import saving_utils
 
 class CloudServer:
     def __init__(self):
         self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
         self.type = InstanceType.CLOUD_SERVER
+
+        # Initialize MXNET model
         self.model = gluon.nn.Sequential()
         with self.model.name_scope():
-            self.model.add(gluon.nn.Dense(128, activation='relu'))
-            self.model.add(gluon.nn.Dense(64, activation='relu'))
-            self.model.add(gluon.nn.Dense(10))
+            self.model.add(gluon.nn.Dense(128, in_units=784, activation='relu'))
+            self.model.add(gluon.nn.Dense(64, in_units=128, activation='relu'))
+            self.model.add(gluon.nn.Dense(10, in_units=64))
         self.model.initialize(mx.init.Xavier(), force_reinit=True)
+
+        # Retreat parameters from initialized model
+        grad_collect = []
+        for param in self.model.collect_params().values():
+            grad_collect.append(param.data())
+        self.parameter = grad_collect
+
         self.accumulative_gradients = []
         self.cv = threading.Condition()
         self.terminated = False
         self.connections = []
         self.num_edge_servers = 1
 
+
     def process(self):
         HOST = socket.gethostname()
-        PORT = 9999
+        PORT = SERVER_PORT
         connection_thread = threading.Thread(target=server_handle_connection, args=(HOST, PORT, self, True))
         connection_thread.start()
 
@@ -33,14 +51,8 @@ class CloudServer:
             while len(self.connections) < 1:
                 self.cv.wait()
 
-        # for i in range(self.num_epochs):
-        #     for conn in self.connections:
-        #         send_message(self.connections[0], InstanceType.CLOUD_SERVER, PayloadType.PARAMETER, self.parameter)
-        #     print('sent parameter to edge servers')
-
         # Keep waiting for new gradients
         while True:
-
             # wait for response from edge servers
             with self.cv:
                 while len(self.accumulative_gradients) < self.cfg['max_cloud_gradients']:
@@ -48,21 +60,17 @@ class CloudServer:
             print('received responses from edge servers')
 
             self.update_model()
-            self.send_parameter() # send new parameters to edge servers after aggregation
+            self.send_parameter() # send new parameters to edge servers after aggregation (not model)
 
         self.terminated = True
-        print(self.parameter)
 
-    def aggregate(self):
-        msg = self.accumulative_gradients.pop()
-        return msg.payload
-
-    # Update the model with its accumulative gradients
-    # Used for batch gradient descent
+    # Update the model with the aggregated gradients from accumulative gradients
     def update_model(self):
-        print("UPDATE")
+        # Aggregate accumulative gradients
         param_list = [nd.concat(*[xx.reshape((-1, 1)) for xx in x], dim=0) for x in self.accumulative_gradients]
         mean_nd = nd.mean(nd.concat(*param_list, dim=1), axis=-1)
+
+        # Update Model
         idx = 0
         for j, (param) in enumerate(self.model.collect_params().values()):
             if param.grad_req != 'null':
@@ -73,8 +81,14 @@ class CloudServer:
                 idx += param.data().size
         self.accumulative_gradients = []
 
+        # Retreat parameters from the newly updated model
+        grad_collect = []
+        for param in self.model.collect_params().values():
+            grad_collect.append(param.data())
+        self.parameter = grad_collect
+
     def send_parameter(self):
-        send_message(self.connections[0], InstanceType.CLOUD_SERVER, PayloadType.PARAMETER, self.model)
+        send_message(self.connections[0], InstanceType.CLOUD_SERVER, PayloadType.PARAMETER, self.parameter)
 
 if __name__ == "__main__":
     cloud_server = CloudServer()
