@@ -24,7 +24,7 @@ class EdgeServer:
 
     def process(self):
         HOST = socket.gethostname()
-        WORKER_PORT = 6666
+        PORT = EDGE_PORT
         CLOUD_SERVER_PORT = SERVER_PORT
 
         # build_connection with cloud server
@@ -35,15 +35,20 @@ class EdgeServer:
         threading.Thread(target=self.receive_parameter, args=((central_server_conn, ))).start()
         
         # Start server and wait for workers to connect
-        threading.Thread(target=server_handle_connection, args=(HOST, WORKER_PORT, self, False)).start()
+        threading.Thread(target=server_handle_connection, args=(HOST, PORT, self, True)).start()
+
+        # wait for at least num_of_workers workers to join
+        # when a worker joins, we send a parameter to the worker
+        with self.cv:
+            while len(self.connections) < self.cfg['num_workers']:
+                self.cv.wait()
+        print('enough worker joined')
+
+        # Tell workers to start
+        for worker_conn in self.connections:
+            send_message(worker_conn, InstanceType.EDGE_SERVER, PayloadType.START_MESSAGE, b'start')
 
         while True:
-            # wait for at least num_of_workers workers to join
-            # when a worker joins, we send a parameter to the worker
-            with self.cv:
-                while len(self.connections) < self.cfg['num_workers']:
-                    self.cv.wait()
-            print('enough worker joined')
 
             with self.cv:
                 while len(self.accumulative_gradients) < self.cfg['max_edge_gradients']:
@@ -57,16 +62,6 @@ class EdgeServer:
             send_message(central_server_conn, InstanceType.EDGE_SERVER, PayloadType.GRADIENT, aggregated_gradient)
             print('sent aggregated gradients to central server')
 
-            # Edge server has to close the connections with workers every time
-            for conn in self.connections:
-                send_message(conn, InstanceType.EDGE_SERVER, PayloadType.CONNECTION_SIGNAL, b'1')
-                conn.close()
-
-            # will a new worker join the connection array during the for loop above? ^^^
-            # this new conn will get cleared out ^^^    
-
-            self.connections = []
-
         central_server_conn.close()
         self.terminated = True
 
@@ -76,6 +71,13 @@ class EdgeServer:
             msg = wait_for_message(central_server_conn)
             self.parameter = msg.get_payload()
             print('received parameter from central server')
+
+            # Upon receving new params from cloud, send them to workers
+            self.send_parameter_to_worker()
+
+    def send_parameter_to_worker(self):
+        for worker_conn in self.connections:
+            send_message(worker_conn, InstanceType.EDGE_SERVER, PayloadType.PARAMETER, self.parameter)
 
     def aggregate(self):
         # X is a 2d list of nd array

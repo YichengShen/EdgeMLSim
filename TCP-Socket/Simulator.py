@@ -1,3 +1,5 @@
+import socket
+import threading
 import yaml
 import mxnet as mx
 import numpy as np
@@ -6,10 +8,13 @@ from mxnet.gluon.data.vision import transforms
 from gluoncv.data import transforms as gcv_transforms
 import tensorflow as tf
 
+from Msg import *
 from Worker import Worker
+import UtilsSimulator as SimUtil
 
 class Simulator:
     def __init__(self):
+        # ML attributes
         self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
         self.epoch = 0
         self.train_data = None
@@ -19,6 +24,15 @@ class Simulator:
         self.load_data()
         self.epoch_loss = mx.metric.CrossEntropy()
         self.epoch_accuracy = mx.metric.Accuracy()
+
+        # TCP attributes
+        self.type = InstanceType.SIMULATOR
+        self.cv = threading.Condition()
+        self.terminated = False
+        self.cloud_conn = None
+        self.worker_count = 0
+        self.worker_conns = []
+        self.worker_id_free = []
 
     def transform(self, data, label):
         data = data.astype(np.float32) / 255
@@ -46,9 +60,13 @@ class Simulator:
         for i, (data, label) in enumerate(self.train_data):
             self.shuffled_data.append((data, label))
 
+    def get_model(self):
+        SimUtil.send_message(self.cloud_conn, InstanceType.SIMULATOR, PayloadType.REQUEST, b'ask for model')
+        model_msg = SimUtil.wait_for_message(self.cloud_conn)
+        return model_msg.get_payload()
 
-    def get_accu_loss(self, worker):
-        model = worker.get_model()
+    def get_accu_loss(self):
+        model = self.get_model()
         # Calculate accuracy on testing data
         for i, (data, label) in enumerate(self.val_test_data):
             outputs = model(data)
@@ -59,13 +77,13 @@ class Simulator:
             self.epoch_loss.update(label, nd.softmax(outputs))
 
 
-    def print_accu_loss(self, worker):
+    def print_accu_loss(self):
         self.epoch_accuracy.reset()
         self.epoch_loss.reset()
         print("finding accu and loss ...")
 
         # Calculate accuracy and loss
-        self.get_accu_loss(worker)
+        self.get_accu_loss()
 
         _, accu = self.epoch_accuracy.get()
         _, loss = self.epoch_loss.get()
@@ -78,17 +96,54 @@ class Simulator:
         """
             loop through sumo file
         """
-        worker = Worker()
-        
+
+        # Simulator starts to listen for Workers
+        HOST = socket.gethostname()
+        PORT = SimUtil.SIMULATOR_PORT
+        connection_thread = threading.Thread(target=SimUtil.simulator_handle_connection, args=(HOST, PORT, self, True))
+        connection_thread.start()
+
+        # Simulator listens for Cloud
+        cloud_conn_thread = threading.Thread(target=SimUtil.handle_conn_with_cloud, args=(HOST, PORT+5, self, True))
+        cloud_conn_thread.start()
+
+        # Wait for cloud to connect
+        with self.cv:
+            while self.cloud_conn is None:
+                self.cv.wait()
+
+        with self.cv:
+            while len(self.worker_conns) < 1:
+                self.cv.wait()
+
+        self.new_epoch()
         while self.epoch <= self.cfg['num_epochs']:
-            
+
             # Run out of training data for the particular epoch
             if not self.shuffled_data:
                 if self.epoch > 0:
-                    self.print_accu_loss(worker)
+                    self.print_accu_loss()
+                print("new epoch", self.epoch)
                 self.new_epoch()
+                if self.epoch > self.cfg['num_epochs']:
+                    break
+            
+            data = self.shuffled_data.pop()
+            worker_conn = self.worker_conns[self.worker_id_free.pop()]
+            SimUtil.send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, data)
 
-            worker.process(self.shuffled_data.pop())
+            #TODO: change this into a thread
+            id_msg = SimUtil.wait_for_message(worker_conn)
+            self.worker_id_free.append(id_msg.get_payload())
+
+        # Close the connections with workers
+        for worker_conn in self.worker_conns:
+            SimUtil.send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.CONNECTION_SIGNAL, b'1')
+            worker_conn.close()
+
+        self.connections = []
+
+        self.terminated = True
 
 
 if __name__ == "__main__":

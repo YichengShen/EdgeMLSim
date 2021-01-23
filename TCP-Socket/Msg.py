@@ -7,11 +7,17 @@ class InstanceType(Enum):
 	CLOUD_SERVER = 0
 	EDGE_SERVER = 1
 	WORKER = 2
+	SIMULATOR = 9
 
 class PayloadType(Enum):
 	CONNECTION_SIGNAL = 0
-	PARAMETER = 1
-	GRADIENT = 2
+	MODEL = 1
+	PARAMETER = 2
+	GRADIENT = 3
+	START_MESSAGE = 4
+	DATA = 5
+	ID = 6
+	REQUEST = 7
 
 class Msg:
 	def __init__(self, source_type, payload_type, payload):

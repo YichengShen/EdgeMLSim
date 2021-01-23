@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 from Msg import *
 from Utils import *
+import UtilsSimulator as SimUtil
 from NeuralNetwork import Neural_Network
 import yaml
 
@@ -44,8 +45,18 @@ class CloudServer:
     def process(self):
         HOST = socket.gethostname()
         PORT = SERVER_PORT
+
+        # Build connection with Simulator
+        PORT_SIM = SimUtil.SIMULATOR_PORT
+        simulator_conn = SimUtil.cloud_connect_simulator(HOST, PORT_SIM+5)
+        print('connection with simulator established')
+
+        # Run server
         connection_thread = threading.Thread(target=server_handle_connection, args=(HOST, PORT, self, True))
         connection_thread.start()
+
+        # Keep waiting for model request from Simulator
+        threading.Thread(target=self.send_model_to_simulator, args=((simulator_conn, ))).start()
 
         with self.cv:
             while len(self.connections) < 1:
@@ -89,6 +100,12 @@ class CloudServer:
 
     def send_parameter(self):
         send_message(self.connections[0], InstanceType.CLOUD_SERVER, PayloadType.PARAMETER, self.parameter)
+
+    def send_model_to_simulator(self, simulator_conn):
+        while True:
+            model_request_msg = wait_for_message(simulator_conn)
+            if model_request_msg.get_payload_type() == PayloadType.REQUEST:
+                send_message(simulator_conn, InstanceType.CLOUD_SERVER, PayloadType.MODEL, self.model)
 
 if __name__ == "__main__":
     cloud_server = CloudServer()
