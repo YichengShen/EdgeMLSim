@@ -1,11 +1,9 @@
-import socket	#for sockets
+import socket
 from mxnet import nd, gluon, autograd, init
 from Msg import *
 from Utils import *
 import UtilsSimulator as SimUtil
-from NeuralNetwork import Neural_Network
 import numpy as np
-import time
 
 
 class Worker:
@@ -24,10 +22,10 @@ class Worker:
         self.parameter = None
 
     def process(self):
-        # Build connection with edge server
         host = socket.gethostname()
+        
+        # Build connection with edge server
         PORT_EDGE = EDGE_PORT
-    
         edge_server_conn, msg = client_build_connection(host, PORT_EDGE)
         # print('connection with edge server established')
 
@@ -59,7 +57,7 @@ class Worker:
             # Close connection if closing message received
             if data_msg.get_payload_type() == PayloadType.CONNECTION_SIGNAL:
                 simulator_conn.close()
-                # print("Done")
+                print("Done")
                 #TODO: find a way to terminate this thread
                 self.terminated = True
                 break

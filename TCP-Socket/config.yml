@@ -1,11 +1,15 @@
-num_workers: 1
+# NOTE:
+# num_workers is the number of workers per edge server
+# Total number of workers = num_edges * num_workers 
+num_edges: 1
+num_workers: 2
 
-max_cloud_gradients: 5
-max_edge_gradients: 1
+max_cloud_gradients: 10
+max_edge_gradients: 10
 
 batch_size: 100
-num_training_data: 5000
-num_val_loss: 5000
+num_training_data: 50000
+num_val_loss: 10000
 
 num_epochs: 10
 

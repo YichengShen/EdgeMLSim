@@ -9,8 +9,8 @@ from mxnet import nd
 import numpy as np
 
 # Global Var for ease of testing
-SERVER_PORT = 9889
-EDGE_PORT = 6669
+SERVER_PORT = 9999
+EDGE_PORT = 6666
 
 def server_handle_connection(host, port, instance, persistent_connection):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -14,8 +14,10 @@ import UtilsSimulator as SimUtil
 
 class Simulator:
     def __init__(self):
-        # ML attributes
+        # Config
         self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
+
+        # ML attributes
         self.epoch = 0
         self.train_data = None
         self.val_train_data = None
@@ -92,7 +94,7 @@ class Simulator:
                                                                             loss,
                                                                             accu))
 
-    def main_loop(self):
+    def process(self):
         """
             loop through sumo file
         """
@@ -111,10 +113,14 @@ class Simulator:
         with self.cv:
             while self.cloud_conn is None:
                 self.cv.wait()
+        print(f"\n>>> Cloud Server connected \n")
 
+        # Wait for all workers to connect
+        total_num_workers = self.cfg['num_edges'] * self.cfg['num_workers']
         with self.cv:
-            while len(self.worker_conns) < 1:
+            while len(self.worker_conns) < total_num_workers:
                 self.cv.wait()
+        print(f"\n>>> All {len(self.worker_conns)} workers connected \n")
 
         self.new_epoch()
         while self.epoch <= self.cfg['num_epochs']:
@@ -123,7 +129,6 @@ class Simulator:
             if not self.shuffled_data:
                 if self.epoch > 0:
                     self.print_accu_loss()
-                print("new epoch", self.epoch)
                 self.new_epoch()
                 if self.epoch > self.cfg['num_epochs']:
                     break
@@ -148,4 +153,4 @@ class Simulator:
 
 if __name__ == "__main__":
     simulator = Simulator()
-    simulator.main_loop()
+    simulator.process()

@@ -1,5 +1,4 @@
 import socket
-import sys
 import threading
 import mxnet as mx
 from mxnet import nd, gluon
@@ -8,7 +7,6 @@ import tensorflow as tf
 from Msg import *
 from Utils import *
 import UtilsSimulator as SimUtil
-from NeuralNetwork import Neural_Network
 import yaml
 
 from tensorflow.keras.models import Sequential, Model
@@ -18,10 +16,11 @@ from tensorflow.python.keras.saving import saving_utils
 
 class CloudServer:
     def __init__(self):
+        # Config
         self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
-        self.type = InstanceType.CLOUD_SERVER
 
-        # Initialize MXNET model
+        # ML attributes
+            # Initialize MXNET model
         self.model = gluon.nn.Sequential()
         with self.model.name_scope():
             self.model.add(gluon.nn.Dense(128, in_units=784, activation='relu'))
@@ -29,18 +28,19 @@ class CloudServer:
             self.model.add(gluon.nn.Dense(10, in_units=64))
         self.model.initialize(mx.init.Xavier(), force_reinit=True)
 
-        # Retreat parameters from initialized model
+            # Retreat parameters from initialized model
         grad_collect = []
         for param in self.model.collect_params().values():
             grad_collect.append(param.data())
         self.parameter = grad_collect
 
         self.accumulative_gradients = []
+        
+        # TCP attributes
+        self.type = InstanceType.CLOUD_SERVER
         self.cv = threading.Condition()
         self.terminated = False
         self.connections = []
-        self.num_edge_servers = 1
-
 
     def process(self):
         HOST = socket.gethostname()
@@ -58,9 +58,11 @@ class CloudServer:
         # Keep waiting for model request from Simulator
         threading.Thread(target=self.send_model_to_simulator, args=((simulator_conn, ))).start()
 
+        # Wait for all edge servers to connect
         with self.cv:
-            while len(self.connections) < 1:
+            while len(self.connections) < self.cfg['num_edges']:
                 self.cv.wait()
+        print(f"\n>>> All {len(self.connections)} edge servers connected \n")
 
         # Keep waiting for new gradients
         while True:
@@ -68,7 +70,7 @@ class CloudServer:
             with self.cv:
                 while len(self.accumulative_gradients) < self.cfg['max_cloud_gradients']:
                     self.cv.wait()
-            print('received responses from edge servers')
+            # print('received responses from edge servers')
 
             self.update_model()
             self.send_parameter() # send new parameters to edge servers after aggregation (not model)

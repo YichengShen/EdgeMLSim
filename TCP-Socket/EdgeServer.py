@@ -1,5 +1,4 @@
-import socket	#for sockets
-import sys	#for exit
+import socket
 import mxnet as mx
 import numpy as np
 from mxnet import nd, autograd, gluon
@@ -7,17 +6,21 @@ import threading
 import yaml
 from Msg import *
 from Utils import *
-from NeuralNetwork import Neural_Network
 import CloudServer
 
 
 class EdgeServer:
     def __init__(self):
+        # Config
         self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
-        self.type = InstanceType.EDGE_SERVER
+
+        # ML Attributes
         self.parameter = None
         self.gradient = 0
         self.accumulative_gradients = []
+
+        # TCP Attributes
+        self.type = InstanceType.EDGE_SERVER
         self.cv = threading.Condition()
         self.terminated = False
         self.connections = []
@@ -42,7 +45,7 @@ class EdgeServer:
         with self.cv:
             while len(self.connections) < self.cfg['num_workers']:
                 self.cv.wait()
-        print('enough worker joined')
+        print(f"\n>>> All {len(self.connections)} workers connected \n")
 
         # Tell workers to start
         for worker_conn in self.connections:
@@ -53,14 +56,14 @@ class EdgeServer:
             with self.cv:
                 while len(self.accumulative_gradients) < self.cfg['max_edge_gradients']:
                     self.cv.wait()
-            print('received responses from workers')
+            # print('received responses from workers')
 
             # Aggregate
             aggregated_gradient = self.aggregate()
 
             # Send aggregated gradients to server
             send_message(central_server_conn, InstanceType.EDGE_SERVER, PayloadType.GRADIENT, aggregated_gradient)
-            print('sent aggregated gradients to central server')
+            # print('sent aggregated gradients to central server')
 
         central_server_conn.close()
         self.terminated = True
@@ -70,7 +73,7 @@ class EdgeServer:
         while True:
             msg = wait_for_message(central_server_conn)
             self.parameter = msg.get_payload()
-            print('received parameter from central server')
+            # print('received parameter from central server')
 
             # Upon receving new params from cloud, send them to workers
             self.send_parameter_to_worker()
