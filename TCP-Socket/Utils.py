@@ -9,10 +9,11 @@ from mxnet import nd
 import numpy as np
 
 # Global Var for ease of testing
-SERVER_PORT = 9999
-EDGE_PORT = 6666
+SIMULATOR_PORT = 10001
+SERVER_PORT = SIMULATOR_PORT - 1000
+EDGE_PORT = SIMULATOR_PORT - 2000
 
-def server_handle_connection(host, port, instance, persistent_connection):
+def server_handle_connection(host, port, instance, persistent_connection, source_type=None, client_type=None):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     #Bind socket to local host and port
@@ -30,10 +31,22 @@ def server_handle_connection(host, port, instance, persistent_connection):
         try:
             conn, addr = s.accept()
             print('Connected with ' + addr[0] + ':' + str(addr[1]))
-            threading.Thread(target=connection_thread, args=(conn, instance, persistent_connection)).start()
+            if source_type == None:
+                threading.Thread(target=connection_thread, args=(conn, instance, persistent_connection, source_type)).start()
             with instance.cv:
-                instance.connections.append(conn)
-                send_message(conn, instance.type, PayloadType.PARAMETER, instance.parameter)
+                if source_type == InstanceType.SIMULATOR:
+                    if client_type == InstanceType.WORKER:
+                        instance.worker_conns.append(conn)
+                        # assign id to worker
+                        instance.worker_id_free.append(instance.worker_count) 
+                        # send id to worker
+                        send_message(conn, instance.type, PayloadType.ID, instance.worker_count)
+                        instance.worker_count += 1
+                    elif client_type == InstanceType.CLOUD_SERVER:
+                        instance.cloud_conn = conn
+                else:
+                    instance.connections.append(conn)
+                    send_message(conn, instance.type, PayloadType.PARAMETER, instance.parameter)
                 instance.cv.notify()
         except:
             if instance.terminated:
@@ -47,18 +60,19 @@ def server_handle_connection(host, port, instance, persistent_connection):
 
     s.close()
 
-def connection_thread(conn, instance, persistent_connection):
+def connection_thread(conn, instance, persistent_connection, source_type):
     while not instance.terminated:
         msg = wait_for_message(conn)
         if msg:
             with instance.cv:
-                instance.accumulative_gradients.append(msg.payload)
+                if source_type == None:
+                    instance.accumulative_gradients.append(msg.payload)
                 instance.cv.notify()
         if not persistent_connection:
             break
 
-def client_build_connection(host, port):
-    #create an INET, STREAMing socket
+def client_build_connection(host, port, client_type=None):
+    # create an INET, STREAMing socket
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     except socket.error:
@@ -69,15 +83,19 @@ def client_build_connection(host, port):
         remote_ip = socket.gethostbyname(host)
 
     except socket.gaierror:
-        #could not resolve
+        # could not resolve
         print('Hostname could not be resolved. Exiting')
         sys.exit()
 
-    #Connect to remote server
+    # Connect to remote server
     s.connect((remote_ip, port))
-    #Wait for parameters from remote server
-    params = wait_for_message(s)
-    return s, params
+
+    if client_type != InstanceType.CLOUD_SERVER:
+        # Wait for messages from remote server
+        msg = wait_for_message(s)
+        return s, msg
+    else:
+        return s
 
 def send_message(conn, source_type, payload_type, payload):
     msg = Msg(source_type, payload_type, payload)

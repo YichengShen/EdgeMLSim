@@ -10,7 +10,8 @@ import tensorflow as tf
 
 from Msg import *
 from Worker import Worker
-import UtilsSimulator as SimUtil
+from Utils import *
+
 
 class Simulator:
     def __init__(self):
@@ -63,8 +64,8 @@ class Simulator:
             self.shuffled_data.append((data, label))
 
     def get_model(self):
-        SimUtil.send_message(self.cloud_conn, InstanceType.SIMULATOR, PayloadType.REQUEST, b'ask for model')
-        model_msg = SimUtil.wait_for_message(self.cloud_conn)
+        send_message(self.cloud_conn, InstanceType.SIMULATOR, PayloadType.REQUEST, b'ask for model')
+        model_msg = wait_for_message(self.cloud_conn)
         return model_msg.get_payload()
 
     def get_accu_loss(self):
@@ -94,6 +95,13 @@ class Simulator:
                                                                             loss,
                                                                             accu))
 
+    def wait_for_free_worker_id(self, worker_conn):
+        # while not self.terminated:
+        id_msg = wait_for_message(worker_conn)
+        self.worker_id_free.append(id_msg.get_payload())
+            # if len(self.worker_id_free) == 1:
+            #     self.cv.notify()  
+
     def process(self):
         """
             loop through sumo file
@@ -101,13 +109,18 @@ class Simulator:
 
         # Simulator starts to listen for Workers
         HOST = socket.gethostname()
-        PORT = SimUtil.SIMULATOR_PORT
-        connection_thread = threading.Thread(target=SimUtil.simulator_handle_connection, args=(HOST, PORT, self, True))
+        PORT = SIMULATOR_PORT
+        connection_thread = threading.Thread(target=server_handle_connection, 
+                                             args=(HOST, PORT, self, True, self.type, InstanceType.WORKER))
         connection_thread.start()
 
         # Simulator listens for Cloud
-        cloud_conn_thread = threading.Thread(target=SimUtil.handle_conn_with_cloud, args=(HOST, PORT+5, self, True))
+        cloud_conn_thread = threading.Thread(target=server_handle_connection, 
+                                             args=(HOST, PORT+5, self, True, self.type, InstanceType.CLOUD_SERVER))
         cloud_conn_thread.start()
+
+        #TODO: keep track of edge servers' port/ID 
+        # use this to determine which worker should receive data
 
         # Wait for cloud to connect
         with self.cv:
@@ -122,6 +135,10 @@ class Simulator:
                 self.cv.wait()
         print(f"\n>>> All {len(self.worker_conns)} workers connected \n")
 
+        # for worker_conn in self.worker_conns:
+        #     # Wait for the work to finish and send back its id in a new thread
+        #     threading.Thread(target=self.wait_for_free_worker_id, args=(worker_conn, )).start()
+
         self.new_epoch()
         while self.epoch <= self.cfg['num_epochs']:
 
@@ -134,16 +151,23 @@ class Simulator:
                     break
             
             data = self.shuffled_data.pop()
-            worker_conn = self.worker_conns[self.worker_id_free.pop()]
-            SimUtil.send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, data)
+            
+            while True:
+                if len(self.worker_id_free) >= 1:
+                    worker_conn = self.worker_conns[self.worker_id_free.pop()]
+                    break
+            send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, data)
 
-            #TODO: change this into a thread
-            id_msg = SimUtil.wait_for_message(worker_conn)
-            self.worker_id_free.append(id_msg.get_payload())
+            # with self.cv:
+            #     while len(self.worker_id_free) < 1:
+            #         self.cv.wait()
+
+            # Wait for the work to finish and send back its id in a new thread
+            threading.Thread(target=self.wait_for_free_worker_id, args=(worker_conn, )).start()
 
         # Close the connections with workers
         for worker_conn in self.worker_conns:
-            SimUtil.send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.CONNECTION_SIGNAL, b'1')
+            send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.CONNECTION_SIGNAL, b'1')
             worker_conn.close()
 
         self.connections = []

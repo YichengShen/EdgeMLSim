@@ -2,7 +2,6 @@ import socket
 from mxnet import nd, gluon, autograd, init
 from Msg import *
 from Utils import *
-import UtilsSimulator as SimUtil
 import numpy as np
 
 
@@ -30,8 +29,8 @@ class Worker:
         # print('connection with edge server established')
 
         # Build connection with simulator
-        PORT_SIM = SimUtil.SIMULATOR_PORT
-        simulator_conn, id_msg = SimUtil.connect_with_simulator(host, PORT_SIM)
+        PORT_SIM = SIMULATOR_PORT
+        simulator_conn, id_msg = client_build_connection(host, PORT_SIM)
         # print('connection with simulator established')
         self.worker_id = id_msg.get_payload()
         # print('id assigned:', self.worker_id)

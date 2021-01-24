@@ -6,7 +6,6 @@ import numpy as np
 import tensorflow as tf
 from Msg import *
 from Utils import *
-import UtilsSimulator as SimUtil
 import yaml
 
 from tensorflow.keras.models import Sequential, Model
@@ -47,8 +46,8 @@ class CloudServer:
         PORT = SERVER_PORT
 
         # Build connection with Simulator
-        PORT_SIM = SimUtil.SIMULATOR_PORT
-        simulator_conn = SimUtil.cloud_connect_simulator(HOST, PORT_SIM+5)
+        PORT_SIM = SIMULATOR_PORT
+        simulator_conn = client_build_connection(HOST, PORT_SIM+5, self.type)
         print('connection with simulator established')
 
         # Run server
@@ -79,8 +78,11 @@ class CloudServer:
 
     # Update the model with the aggregated gradients from accumulative gradients
     def update_model(self):
+        gradients_to_aggregate = self.accumulative_gradients[:self.cfg['max_cloud_gradients']]
+        self.accumulative_gradients = self.accumulative_gradients[self.cfg['max_cloud_gradients']:]
+
         # Aggregate accumulative gradients
-        param_list = [nd.concat(*[xx.reshape((-1, 1)) for xx in x], dim=0) for x in self.accumulative_gradients]
+        param_list = [nd.concat(*[xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients_to_aggregate]
         mean_nd = nd.mean(nd.concat(*param_list, dim=1), axis=-1)
 
         # Update Model
@@ -92,7 +94,6 @@ class CloudServer:
                 lr = self.cfg['learning_rate']
                 param.set_data(param.data() - lr * mean_nd[idx:(idx+param.data().size)].reshape(param.data().shape))
                 idx += param.data().size
-        self.accumulative_gradients = []
 
         # Retreat parameters from the newly updated model
         grad_collect = []

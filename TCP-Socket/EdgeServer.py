@@ -83,18 +83,20 @@ class EdgeServer:
             send_message(worker_conn, InstanceType.EDGE_SERVER, PayloadType.PARAMETER, self.parameter)
 
     def aggregate(self):
+        gradients_to_aggregate = self.accumulative_gradients[:self.cfg['max_edge_gradients']]
+        self.accumulative_gradients = self.accumulative_gradients[self.cfg['max_edge_gradients']:]
+
         # X is a 2d list of nd array
-        param_list = [nd.concat(*[xx.reshape((-1, 1)) for xx in x], dim=0) for x in self.accumulative_gradients]
+        param_list = [nd.concat(*[xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients_to_aggregate]
         mean_nd = nd.mean(nd.concat(*param_list, dim=1), axis=-1)
         grad_collect = []
         idx = 0
 
-        for j, (param) in enumerate(self.accumulative_gradients[0]):
+        for j, (param) in enumerate(gradients_to_aggregate[0]):
             # mapping back to the collection of ndarray
             # append to list for uploading to cloud
             grad_collect.append(mean_nd[idx:(idx+param.size)].reshape(param.shape))
             idx += param.size
-        self.accumulative_gradients = []
         return grad_collect
 
 
