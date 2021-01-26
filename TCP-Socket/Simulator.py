@@ -31,6 +31,7 @@ class Simulator:
         # TCP attributes
         self.type = InstanceType.SIMULATOR
         self.cv = threading.Condition()
+        self.cv_main = threading.Condition()
         self.terminated = False
         self.cloud_conn = None
         self.worker_count = 0
@@ -99,8 +100,8 @@ class Simulator:
         # while not self.terminated:
         id_msg = wait_for_message(worker_conn)
         self.worker_id_free.append(id_msg.get_payload())
-            # if len(self.worker_id_free) == 1:
-            #     self.cv.notify()  
+        with self.cv_main:
+            self.cv_main.notify()  
 
     def process(self):
         """
@@ -152,15 +153,12 @@ class Simulator:
             
             data = self.shuffled_data.pop()
             
-            while True:
-                if len(self.worker_id_free) >= 1:
-                    worker_conn = self.worker_conns[self.worker_id_free.pop()]
-                    break
+            with self.cv_main:
+                while len(self.worker_id_free) == 0:
+                    self.cv_main.wait()
+            
+            worker_conn = self.worker_conns[self.worker_id_free.pop()]
             send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, data)
-
-            # with self.cv:
-            #     while len(self.worker_id_free) < 1:
-            #         self.cv.wait()
 
             # Wait for the work to finish and send back its id in a new thread
             threading.Thread(target=self.wait_for_free_worker_id, args=(worker_conn, )).start()
