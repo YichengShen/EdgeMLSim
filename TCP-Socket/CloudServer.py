@@ -50,6 +50,7 @@ class CloudServer:
         # Build connection with Simulator
         PORT_SIM = SIM_PORT_CLOUD
         simulator_conn = client_build_connection(HOST, PORT_SIM, wait_initial_msg=False)
+        # simulator_conn.settimeout(20)
         print('connection with simulator established')
 
         # Run server
@@ -70,14 +71,15 @@ class CloudServer:
         while True:
             # wait for response from edge servers
             with self.cv:
-                while len(self.accumulative_gradients) < self.cfg['max_cloud_gradients']:
+                while not self.terminated and len(self.accumulative_gradients) < self.cfg['max_cloud_gradients']:
                     self.cv.wait()
             # print('received responses from edge servers')
 
+            if self.terminated:
+                break
+
             self.update_model()
             self.send_parameter() # send new parameters to edge servers after aggregation (not model)
-
-        self.terminated = True
 
     # Update the model with the aggregated gradients from accumulative gradients
     def update_model(self):
@@ -108,10 +110,16 @@ class CloudServer:
         send_message(self.connections[0], InstanceType.CLOUD_SERVER, PayloadType.PARAMETER, self.parameter)
 
     def send_model_to_simulator(self, simulator_conn):
-        while True:
+        while not self.terminated:
             model_request_msg = wait_for_message(simulator_conn)
             if model_request_msg.get_payload_type() == PayloadType.REQUEST:
                 send_message(simulator_conn, InstanceType.CLOUD_SERVER, PayloadType.MODEL, self.model)
+            else:
+                self.terminated = True
+                simulator_conn.close()
+                with self.cv:
+                    self.cv.notify()
+                break
 
 if __name__ == "__main__":
     cloud_server = CloudServer()

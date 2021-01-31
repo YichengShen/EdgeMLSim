@@ -146,6 +146,7 @@ class Simulator:
         print(f"\n>>> All {len(self.edge_conns)} edge servers connected \n")
 
         # Send port of Cloud Server to Edge Servers
+        # print(self.cloud_conn.getpeername()[1])
         cloud_port = self.cloud_conn.getpeername()[1]+1
         for edge_conn in self.edge_conns:
             send_message(edge_conn, InstanceType.SIMULATOR, PayloadType.PORT, cloud_port)
@@ -190,6 +191,15 @@ class Simulator:
         for worker_conn in self.worker_conns:
             send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.CONNECTION_SIGNAL, b'1')
             worker_conn.close()
+
+        # Close the connections with edge servers
+        for edge_conn in self.edge_conns:
+            send_message(edge_conn, InstanceType.SIMULATOR, PayloadType.CONNECTION_SIGNAL, b'1')
+            worker_conn.close()
+
+        # Close the connections with cloud server
+        send_message(self.cloud_conn, InstanceType.SIMULATOR, PayloadType.CONNECTION_SIGNAL, b'1')
+        self.cloud_conn.close()
 
         self.connections = []
 

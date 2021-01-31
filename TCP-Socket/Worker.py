@@ -9,7 +9,7 @@ class Worker:
     def __init__(self):
         # TCP attributes
         self.worker_id = None
-        self.edge_conns = []
+        self.edge_conns = {}
         self.terminated = False
 
         # ML attributes
@@ -37,7 +37,7 @@ class Worker:
         # Build connection with Edge Servers
         for edge_port in edge_ports:
             edge_server_conn = client_build_connection(host, edge_port, wait_initial_msg=False)
-            self.edge_conns.append(edge_server_conn)
+            self.edge_conns[edge_port] = edge_server_conn
 
         while True:
 
@@ -55,15 +55,13 @@ class Worker:
             edge_port, data = data_msg.get_payload()
 
             # Send msg to Edge Server to ask for parameters
-            for edge_conn in self.edge_conns:
-                if edge_conn.getpeername()[1] == edge_port:
-                    send_message(edge_conn, InstanceType.WORKER, PayloadType.REQUEST, b'request for parameter')
+            edge_conn = self.edge_conns[edge_port]
+            send_message(edge_conn, InstanceType.WORKER, PayloadType.REQUEST, b'request for parameter')
 
-                    # Wait for response from Edge Server
-                    parameter_msg = wait_for_message(edge_conn)
-
-                    self.parameter = parameter_msg.get_payload()
-                    break
+            # Wait for response from Edge Server
+            parameter_msg = wait_for_message(edge_conn)
+            self.parameter = parameter_msg.get_payload()
+                    
 
             # Build a new model using parameters received from edge servers
             self.build_model()

@@ -1,4 +1,5 @@
 import socket
+import sys
 import mxnet as mx
 import numpy as np
 from mxnet import nd, autograd, gluon
@@ -40,8 +41,12 @@ class EdgeServer:
         port_msg = wait_for_message(simulator_conn)
         cloud_port = port_msg.get_payload()
 
+        # Keep waiting for closing signal from Simulator
+        threading.Thread(target=self.wait_to_close, args=(simulator_conn, )).start()
+
         # build_connection with cloud server
         central_server_conn, msg = client_build_connection(HOST, cloud_port)
+        # central_server_conn.settimeout(20)
         self.parameter = msg.get_payload()
 
         # Keep waiting for new parameters from the central server
@@ -61,9 +66,12 @@ class EdgeServer:
         while True:
 
             with self.cv:
-                while len(self.accumulative_gradients) < self.cfg['max_edge_gradients']:
+                while not self.terminated and len(self.accumulative_gradients) < self.cfg['max_edge_gradients']:
                     self.cv.wait()
             # print('received responses from workers')
+
+            if self.terminated:
+                break
 
             # Aggregate
             aggregated_gradient = self.aggregate()
@@ -73,13 +81,16 @@ class EdgeServer:
             # print('sent aggregated gradients to central server')
 
         central_server_conn.close()
-        self.terminated = True
 
     def receive_parameter(self, central_server_conn):
         # Used for the thread that waits for parameters sent from the cloud server
-        while True:
-            msg = wait_for_message(central_server_conn)
-            self.parameter = msg.get_payload()
+        while not self.terminated:
+            try: 
+                msg = wait_for_message(central_server_conn)
+            except OSError:
+                sys.exit()
+            if not self.terminated:
+                self.parameter = msg.get_payload()
 
     def aggregate(self):
         gradients_to_aggregate = self.accumulative_gradients[:self.cfg['max_edge_gradients']]
@@ -97,6 +108,15 @@ class EdgeServer:
             grad_collect.append(mean_nd[idx:(idx+param.size)].reshape(param.shape))
             idx += param.size
         return grad_collect
+
+    def wait_to_close(self, conn):
+        while not self.terminated:
+            msg = wait_for_message(conn)
+            if msg.get_payload_type() == PayloadType.CONNECTION_SIGNAL:
+                self.terminated = True
+                conn.close()
+                with self.cv:
+                    self.cv.notify()
 
 
 if __name__ == "__main__":

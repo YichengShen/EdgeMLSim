@@ -66,7 +66,10 @@ def server_handle_connection(host, port, instance, persistent_connection, source
 
 def connection_thread(conn, instance, persistent_connection, source_type):
     while not instance.terminated:
-        msg = wait_for_message(conn)
+        try:
+            msg = wait_for_message(conn)
+        except OSError:
+            sys.exit()
         if msg:
             if source_type == None:
                 if msg.get_payload_type() == PayloadType.GRADIENT:
