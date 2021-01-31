@@ -18,6 +18,7 @@ class PayloadType(Enum):
 	DATA = 5
 	ID = 6
 	REQUEST = 7
+	PORT = 8
 
 class Msg:
 	def __init__(self, source_type, payload_type, payload):

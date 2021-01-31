@@ -9,9 +9,9 @@ from mxnet import nd
 import numpy as np
 
 # Global Var for ease of testing
-SIMULATOR_PORT = 10001
-SERVER_PORT = SIMULATOR_PORT - 1000
-EDGE_PORT = SIMULATOR_PORT - 2000
+SIM_PORT_WORKER = 10002
+SIM_PORT_CLOUD = SIM_PORT_WORKER + 10000
+SIM_PORT_EDGE = SIM_PORT_CLOUD + 10000
 
 def server_handle_connection(host, port, instance, persistent_connection, source_type=None, client_type=None):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -19,12 +19,14 @@ def server_handle_connection(host, port, instance, persistent_connection, source
     #Bind socket to local host and port
     try:
         s.bind((host, port))
+        instance.port = s.getsockname()[1]
+        # print(s.getsockname()[1])
     except socket.error as msg:
         print('Bind failed. Error :', msg)
         sys.exit()
     #Start listening on socket
     s.listen()
-    print('Socket now listening')
+    # print(instance.type, 'now listening')
     s.settimeout(10)
 
     while True:
@@ -44,6 +46,8 @@ def server_handle_connection(host, port, instance, persistent_connection, source
                         instance.worker_count += 1
                     elif client_type == InstanceType.CLOUD_SERVER:
                         instance.cloud_conn = conn
+                    elif client_type == InstanceType.EDGE_SERVER:
+                        instance.edge_conns.append(conn)
                 else:
                     instance.connections.append(conn)
                     send_message(conn, instance.type, PayloadType.PARAMETER, instance.parameter)
@@ -64,14 +68,19 @@ def connection_thread(conn, instance, persistent_connection, source_type):
     while not instance.terminated:
         msg = wait_for_message(conn)
         if msg:
-            with instance.cv:
-                if source_type == None:
-                    instance.accumulative_gradients.append(msg.payload)
-                instance.cv.notify()
+            if source_type == None:
+                if msg.get_payload_type() == PayloadType.GRADIENT:
+                    # used for both Cloud and Edge
+                    with instance.cv:     
+                        instance.accumulative_gradients.append(msg.payload)
+                        instance.cv.notify()
+                elif msg.get_payload_type() == PayloadType.REQUEST:
+                    # used for Edge Server (when workers ask for parameters)
+                    send_message(conn, instance.type, PayloadType.PARAMETER, instance.parameter)
         if not persistent_connection:
             break
 
-def client_build_connection(host, port, client_type=None):
+def client_build_connection(host, port, wait_initial_msg=True):
     # create an INET, STREAMing socket
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -90,7 +99,7 @@ def client_build_connection(host, port, client_type=None):
     # Connect to remote server
     s.connect((remote_ip, port))
 
-    if client_type != InstanceType.CLOUD_SERVER:
+    if wait_initial_msg:
         # Wait for messages from remote server
         msg = wait_for_message(s)
         return s, msg

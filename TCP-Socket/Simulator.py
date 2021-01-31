@@ -1,6 +1,7 @@
 import socket
 import threading
 import yaml
+import random
 import mxnet as mx
 import numpy as np
 from mxnet import nd, autograd, gluon
@@ -30,10 +31,12 @@ class Simulator:
 
         # TCP attributes
         self.type = InstanceType.SIMULATOR
+        self.port = None
         self.cv = threading.Condition()
         self.cv_main = threading.Condition()
         self.terminated = False
         self.cloud_conn = None
+        self.edge_conns = []
         self.worker_count = 0
         self.worker_conns = []
         self.worker_id_free = []
@@ -108,20 +111,27 @@ class Simulator:
             loop through sumo file
         """
 
-        # Simulator starts to listen for Workers
         HOST = socket.gethostname()
-        PORT = SIMULATOR_PORT
+
+        # Simulator listens for Cloud
+        PORT = SIM_PORT_CLOUD
+        cloud_conn_thread = threading.Thread(target=server_handle_connection, 
+                                             args=(HOST, PORT, self, True, self.type, InstanceType.CLOUD_SERVER))
+        cloud_conn_thread.start()
+
+        # Simulator listens for Edge Servers
+        PORT = SIM_PORT_EDGE
+        cloud_conn_thread = threading.Thread(target=server_handle_connection, 
+                                             args=(HOST, PORT, self, True, self.type, InstanceType.EDGE_SERVER))
+        cloud_conn_thread.start()
+
+        # Simulator starts to listen for Workers
+        PORT = SIM_PORT_WORKER
         connection_thread = threading.Thread(target=server_handle_connection, 
                                              args=(HOST, PORT, self, True, self.type, InstanceType.WORKER))
         connection_thread.start()
 
-        # Simulator listens for Cloud
-        cloud_conn_thread = threading.Thread(target=server_handle_connection, 
-                                             args=(HOST, PORT+5, self, True, self.type, InstanceType.CLOUD_SERVER))
-        cloud_conn_thread.start()
-
-        #TODO: keep track of edge servers' port/ID 
-        # use this to determine which worker should receive data
+        print("\nSimulator listening\n")
 
         # Wait for cloud to connect
         with self.cv:
@@ -129,16 +139,28 @@ class Simulator:
                 self.cv.wait()
         print(f"\n>>> Cloud Server connected \n")
 
-        # Wait for all workers to connect
-        total_num_workers = self.cfg['num_edges'] * self.cfg['num_workers']
+        # Wait for edge servers to connect
         with self.cv:
-            while len(self.worker_conns) < total_num_workers:
+            while len(self.edge_conns) < self.cfg['num_edges']:
+                self.cv.wait()
+        print(f"\n>>> All {len(self.edge_conns)} edge servers connected \n")
+
+        # Send port of Cloud Server to Edge Servers
+        cloud_port = self.cloud_conn.getpeername()[1]+1
+        for edge_conn in self.edge_conns:
+            send_message(edge_conn, InstanceType.SIMULATOR, PayloadType.PORT, cloud_port)
+
+        # Wait for all workers to connect
+        with self.cv:
+            while len(self.worker_conns) < self.cfg['num_workers']:
                 self.cv.wait()
         print(f"\n>>> All {len(self.worker_conns)} workers connected \n")
 
-        # for worker_conn in self.worker_conns:
-        #     # Wait for the work to finish and send back its id in a new thread
-        #     threading.Thread(target=self.wait_for_free_worker_id, args=(worker_conn, )).start()
+        edge_ports = []
+        for edge_conn in self.edge_conns:
+            edge_ports.append(edge_conn.getpeername()[1]+2)
+        for worker_conn in self.worker_conns:
+            send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.PORT, edge_ports)
 
         self.new_epoch()
         while self.epoch <= self.cfg['num_epochs']:
@@ -152,13 +174,14 @@ class Simulator:
                     break
             
             data = self.shuffled_data.pop()
+            edge_port = random.choice(edge_ports)
             
             with self.cv_main:
                 while len(self.worker_id_free) == 0:
                     self.cv_main.wait()
             
             worker_conn = self.worker_conns[self.worker_id_free.pop()]
-            send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, data)
+            send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, (edge_port, data))
 
             # Wait for the work to finish and send back its id in a new thread
             threading.Thread(target=self.wait_for_free_worker_id, args=(worker_conn, )).start()

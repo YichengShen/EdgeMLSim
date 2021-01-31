@@ -37,22 +37,25 @@ class CloudServer:
         
         # TCP attributes
         self.type = InstanceType.CLOUD_SERVER
+        self.port = None
         self.cv = threading.Condition()
         self.terminated = False
         self.connections = []
 
     def process(self):
         HOST = socket.gethostname()
-        PORT = SERVER_PORT
+        # when PORT is 0, OS picks an available port for you in the bind step
+        PORT = 0
 
         # Build connection with Simulator
-        PORT_SIM = SIMULATOR_PORT
-        simulator_conn = client_build_connection(HOST, PORT_SIM+5, self.type)
+        PORT_SIM = SIM_PORT_CLOUD
+        simulator_conn = client_build_connection(HOST, PORT_SIM, wait_initial_msg=False)
         print('connection with simulator established')
 
         # Run server
         connection_thread = threading.Thread(target=server_handle_connection, args=(HOST, PORT, self, True))
         connection_thread.start()
+        print("\nCloud Server listening\n")
 
         # Keep waiting for model request from Simulator
         threading.Thread(target=self.send_model_to_simulator, args=((simulator_conn, ))).start()

@@ -9,7 +9,7 @@ class Worker:
     def __init__(self):
         # TCP attributes
         self.worker_id = None
-        self.start = False
+        self.edge_conns = []
         self.terminated = False
 
         # ML attributes
@@ -22,36 +22,27 @@ class Worker:
 
     def process(self):
         host = socket.gethostname()
-        
-        # Build connection with edge server
-        PORT_EDGE = EDGE_PORT
-        edge_server_conn, msg = client_build_connection(host, PORT_EDGE)
-        # print('connection with edge server established')
 
         # Build connection with simulator
-        PORT_SIM = SIMULATOR_PORT
+        PORT_SIM = SIM_PORT_WORKER
         simulator_conn, id_msg = client_build_connection(host, PORT_SIM)
         # print('connection with simulator established')
         self.worker_id = id_msg.get_payload()
         # print('id assigned:', self.worker_id)
+
+        # Wait for a list of ports of Edge Servers sent from Simulator
+        port_msg = wait_for_message(simulator_conn)
+        edge_ports = port_msg.get_payload()
         
-        self.parameter = msg.get_payload()
-        # print('received parameter')
+        # Build connection with Edge Servers
+        for edge_port in edge_ports:
+            edge_server_conn = client_build_connection(host, edge_port, wait_initial_msg=False)
+            self.edge_conns.append(edge_server_conn)
 
-        # Wait for the start message from Edge Server
-        msg = wait_for_message(edge_server_conn)
-        if msg.get_payload_type() == PayloadType.START_MESSAGE:
-            # print('start message received')
-            self.start = True
-
-        # Keep waiting for new parameters from the edge server
-        threading.Thread(target=self.receive_parameter, args=((edge_server_conn, ))).start()
-
-        while self.start:
+        while True:
 
             # Wait for data from Simulator
             data_msg = wait_for_message(simulator_conn)
-            data = data_msg.get_payload()
 
             # Close connection if closing message received
             if data_msg.get_payload_type() == PayloadType.CONNECTION_SIGNAL:
@@ -60,6 +51,19 @@ class Worker:
                 #TODO: find a way to terminate this thread
                 self.terminated = True
                 break
+
+            edge_port, data = data_msg.get_payload()
+
+            # Send msg to Edge Server to ask for parameters
+            for edge_conn in self.edge_conns:
+                if edge_conn.getpeername()[1] == edge_port:
+                    send_message(edge_conn, InstanceType.WORKER, PayloadType.REQUEST, b'request for parameter')
+
+                    # Wait for response from Edge Server
+                    parameter_msg = wait_for_message(edge_conn)
+
+                    self.parameter = parameter_msg.get_payload()
+                    break
 
             # Build a new model using parameters received from edge servers
             self.build_model()
@@ -101,16 +105,6 @@ class Worker:
 
         return grad_collect
 
-    def get_model(self):
-        # Used in simulator to access the latest model
-        return self.model
-
-    def receive_parameter(self, edge_server_conn):
-        # Used for the thread that waits for parameters sent from the edge server
-        while not self.terminated:
-            msg = wait_for_message(edge_server_conn)
-            self.parameter = msg.get_payload()
-            # print('received parameter from edge server')
 
 if __name__ == "__main__":
     worker = Worker()

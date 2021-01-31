@@ -21,24 +21,35 @@ class EdgeServer:
 
         # TCP Attributes
         self.type = InstanceType.EDGE_SERVER
+        self.port = None
         self.cv = threading.Condition()
         self.terminated = False
         self.connections = []
 
     def process(self):
         HOST = socket.gethostname()
-        PORT = EDGE_PORT
-        CLOUD_SERVER_PORT = SERVER_PORT
+        # when PORT is 0, OS picks an available port for you in the bind step
+        PORT = 0
+
+        # Build connection with Simulator
+        PORT_SIM = SIM_PORT_EDGE
+        simulator_conn = client_build_connection(HOST, PORT_SIM, wait_initial_msg=False)
+        print('connection with simulator established')
+
+        # Wait for port of Cloud Server sent from Simulator
+        port_msg = wait_for_message(simulator_conn)
+        cloud_port = port_msg.get_payload()
 
         # build_connection with cloud server
-        central_server_conn, msg = client_build_connection(HOST, CLOUD_SERVER_PORT)
+        central_server_conn, msg = client_build_connection(HOST, cloud_port)
         self.parameter = msg.get_payload()
 
         # Keep waiting for new parameters from the central server
-        threading.Thread(target=self.receive_parameter, args=((central_server_conn, ))).start()
+        threading.Thread(target=self.receive_parameter, args=(central_server_conn, )).start()
         
         # Start server and wait for workers to connect
         threading.Thread(target=server_handle_connection, args=(HOST, PORT, self, True)).start()
+        print("\nEdge Server listening\n")
 
         # wait for at least num_of_workers workers to join
         # when a worker joins, we send a parameter to the worker
@@ -46,10 +57,6 @@ class EdgeServer:
             while len(self.connections) < self.cfg['num_workers']:
                 self.cv.wait()
         print(f"\n>>> All {len(self.connections)} workers connected \n")
-
-        # Tell workers to start
-        for worker_conn in self.connections:
-            send_message(worker_conn, InstanceType.EDGE_SERVER, PayloadType.START_MESSAGE, b'start')
 
         while True:
 
@@ -73,14 +80,6 @@ class EdgeServer:
         while True:
             msg = wait_for_message(central_server_conn)
             self.parameter = msg.get_payload()
-            # print('received parameter from central server')
-
-            # Upon receving new params from cloud, send them to workers
-            self.send_parameter_to_worker()
-
-    def send_parameter_to_worker(self):
-        for worker_conn in self.connections:
-            send_message(worker_conn, InstanceType.EDGE_SERVER, PayloadType.PARAMETER, self.parameter)
 
     def aggregate(self):
         gradients_to_aggregate = self.accumulative_gradients[:self.cfg['max_edge_gradients']]

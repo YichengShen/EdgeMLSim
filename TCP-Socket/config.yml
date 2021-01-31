@@ -1,6 +1,3 @@
-# NOTE:
-# num_workers is the number of workers per edge server
-# Total number of workers = num_edges * num_workers 
 num_edges: 1
 num_workers: 2
 
