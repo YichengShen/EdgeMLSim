@@ -1,5 +1,21 @@
-num_edges: 1
+num_edges: 2
 num_workers: 2
+
+sim_port_cloud: 10000
+sim_port_edge: 10001
+sim_port_worker: 10002 
+cloud_port: 50000
+edge_ports:
+  - 60000
+  - 60001
+  - 60002
+  - 60003
+  - 60004
+  - 60005
+  - 60006
+  - 60007
+  - 60008
+  - 60009
 
 max_cloud_gradients: 10
 max_edge_gradients: 10

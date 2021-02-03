@@ -3,10 +3,14 @@ from mxnet import nd, gluon, autograd, init
 from Msg import *
 from Utils import *
 import numpy as np
+import yaml
 
 
 class Worker:
     def __init__(self):
+        # Config
+        self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
+
         # TCP attributes
         self.worker_id = None
         self.edge_conns = {}
@@ -24,18 +28,14 @@ class Worker:
         host = socket.gethostname()
 
         # Build connection with simulator
-        PORT_SIM = SIM_PORT_WORKER
-        simulator_conn, id_msg = client_build_connection(host, PORT_SIM)
+        simulator_conn, id_msg = client_build_connection(host, self.cfg["sim_port_worker"])
         # print('connection with simulator established')
         self.worker_id = id_msg.get_payload()
         # print('id assigned:', self.worker_id)
-
-        # Wait for a list of ports of Edge Servers sent from Simulator
-        port_msg = wait_for_message(simulator_conn)
-        edge_ports = port_msg.get_payload()
         
         # Build connection with Edge Servers
-        for edge_port in edge_ports:
+        for idx in range(self.cfg["num_edges"]):
+            edge_port = self.cfg["edge_ports"][idx]
             edge_server_conn = client_build_connection(host, edge_port, wait_initial_msg=False)
             self.edge_conns[edge_port] = edge_server_conn
 
@@ -61,7 +61,6 @@ class Worker:
             # Wait for response from Edge Server
             parameter_msg = wait_for_message(edge_conn)
             self.parameter = parameter_msg.get_payload()
-                    
 
             # Build a new model using parameters received from edge servers
             self.build_model()

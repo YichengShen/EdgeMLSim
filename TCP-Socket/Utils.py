@@ -19,8 +19,6 @@ def server_handle_connection(host, port, instance, persistent_connection, source
     #Bind socket to local host and port
     try:
         s.bind((host, port))
-        instance.port = s.getsockname()[1]
-        # print(s.getsockname()[1])
     except socket.error as msg:
         print('Bind failed. Error :', msg)
         sys.exit()

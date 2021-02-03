@@ -15,6 +15,13 @@ from Utils import *
 
 
 class Simulator:
+    """
+    The Simulator that keeps track of traffic info and controls Cloud Server, Edge Server, and Workers.
+    1. Run TCP servers and wait for cloud, edge servers, and workers to connect
+    2. Start assigning training tasks
+        a. In each epoch, shuffle data
+            - For each data batch in the epoch, send an edge server port number and the data to a worker
+    """
     def __init__(self):
         # Config
         self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
@@ -31,7 +38,6 @@ class Simulator:
 
         # TCP attributes
         self.type = InstanceType.SIMULATOR
-        self.port = None
         self.cv = threading.Condition()
         self.cv_main = threading.Condition()
         self.terminated = False
@@ -114,21 +120,18 @@ class Simulator:
         HOST = socket.gethostname()
 
         # Simulator listens for Cloud
-        PORT = SIM_PORT_CLOUD
         cloud_conn_thread = threading.Thread(target=server_handle_connection, 
-                                             args=(HOST, PORT, self, True, self.type, InstanceType.CLOUD_SERVER))
+                                             args=(HOST, self.cfg["sim_port_cloud"], self, True, self.type, InstanceType.CLOUD_SERVER))
         cloud_conn_thread.start()
 
         # Simulator listens for Edge Servers
-        PORT = SIM_PORT_EDGE
         cloud_conn_thread = threading.Thread(target=server_handle_connection, 
-                                             args=(HOST, PORT, self, True, self.type, InstanceType.EDGE_SERVER))
+                                             args=(HOST, self.cfg["sim_port_edge"], self, True, self.type, InstanceType.EDGE_SERVER))
         cloud_conn_thread.start()
 
         # Simulator starts to listen for Workers
-        PORT = SIM_PORT_WORKER
         connection_thread = threading.Thread(target=server_handle_connection, 
-                                             args=(HOST, PORT, self, True, self.type, InstanceType.WORKER))
+                                             args=(HOST, self.cfg["sim_port_worker"], self, True, self.type, InstanceType.WORKER))
         connection_thread.start()
 
         print("\nSimulator listening\n")
@@ -145,23 +148,11 @@ class Simulator:
                 self.cv.wait()
         print(f"\n>>> All {len(self.edge_conns)} edge servers connected \n")
 
-        # Send port of Cloud Server to Edge Servers
-        # print(self.cloud_conn.getpeername()[1])
-        cloud_port = self.cloud_conn.getpeername()[1]+1
-        for edge_conn in self.edge_conns:
-            send_message(edge_conn, InstanceType.SIMULATOR, PayloadType.PORT, cloud_port)
-
         # Wait for all workers to connect
         with self.cv:
             while len(self.worker_conns) < self.cfg['num_workers']:
                 self.cv.wait()
         print(f"\n>>> All {len(self.worker_conns)} workers connected \n")
-
-        edge_ports = []
-        for edge_conn in self.edge_conns:
-            edge_ports.append(edge_conn.getpeername()[1]+2)
-        for worker_conn in self.worker_conns:
-            send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.PORT, edge_ports)
 
         self.new_epoch()
         while self.epoch <= self.cfg['num_epochs']:
@@ -175,7 +166,7 @@ class Simulator:
                     break
             
             data = self.shuffled_data.pop()
-            edge_port = random.choice(edge_ports)
+            edge_port = self.cfg["edge_ports"][random.randint(0, len(self.edge_conns)-1)]
             
             with self.cv_main:
                 while len(self.worker_id_free) == 0:

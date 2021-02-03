@@ -37,7 +37,6 @@ class CloudServer:
         
         # TCP attributes
         self.type = InstanceType.CLOUD_SERVER
-        self.port = None
         self.cv = threading.Condition()
         self.terminated = False
         self.connections = []
@@ -48,13 +47,11 @@ class CloudServer:
         PORT = 0
 
         # Build connection with Simulator
-        PORT_SIM = SIM_PORT_CLOUD
-        simulator_conn = client_build_connection(HOST, PORT_SIM, wait_initial_msg=False)
-        # simulator_conn.settimeout(20)
+        simulator_conn = client_build_connection(HOST, self.cfg["sim_port_cloud"], wait_initial_msg=False)
         print('connection with simulator established')
 
         # Run server
-        connection_thread = threading.Thread(target=server_handle_connection, args=(HOST, PORT, self, True))
+        connection_thread = threading.Thread(target=server_handle_connection, args=(HOST, self.cfg["cloud_port"], self, True))
         connection_thread.start()
         print("\nCloud Server listening\n")
 

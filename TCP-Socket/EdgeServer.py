@@ -1,3 +1,4 @@
+import argparse
 import socket
 import sys
 import mxnet as mx
@@ -11,7 +12,7 @@ import CloudServer
 
 
 class EdgeServer:
-    def __init__(self):
+    def __init__(self, port_idx):
         # Config
         self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
 
@@ -22,7 +23,7 @@ class EdgeServer:
 
         # TCP Attributes
         self.type = InstanceType.EDGE_SERVER
-        self.port = None
+        self.port = self.cfg["edge_ports"][port_idx]
         self.cv = threading.Condition()
         self.terminated = False
         self.connections = []
@@ -33,27 +34,21 @@ class EdgeServer:
         PORT = 0
 
         # Build connection with Simulator
-        PORT_SIM = SIM_PORT_EDGE
-        simulator_conn = client_build_connection(HOST, PORT_SIM, wait_initial_msg=False)
+        simulator_conn = client_build_connection(HOST, self.cfg["sim_port_edge"], wait_initial_msg=False)
         print('connection with simulator established')
-
-        # Wait for port of Cloud Server sent from Simulator
-        port_msg = wait_for_message(simulator_conn)
-        cloud_port = port_msg.get_payload()
 
         # Keep waiting for closing signal from Simulator
         threading.Thread(target=self.wait_to_close, args=(simulator_conn, )).start()
 
         # build_connection with cloud server
-        central_server_conn, msg = client_build_connection(HOST, cloud_port)
-        # central_server_conn.settimeout(20)
+        central_server_conn, msg = client_build_connection(HOST, self.cfg["cloud_port"])
         self.parameter = msg.get_payload()
 
         # Keep waiting for new parameters from the central server
         threading.Thread(target=self.receive_parameter, args=(central_server_conn, )).start()
         
         # Start server and wait for workers to connect
-        threading.Thread(target=server_handle_connection, args=(HOST, PORT, self, True)).start()
+        threading.Thread(target=server_handle_connection, args=(HOST, self.port, self, True)).start()
         print("\nEdge Server listening\n")
 
         # wait for at least num_of_workers workers to join
@@ -120,5 +115,9 @@ class EdgeServer:
 
 
 if __name__ == "__main__":
-    edge_server = EdgeServer()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port_index", help="port index in config", type=int)
+    args = parser.parse_args()
+
+    edge_server = EdgeServer(args.port_index)
     edge_server.process()
