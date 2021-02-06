@@ -2,16 +2,18 @@ import socket
 import threading
 import yaml
 import random
+import math
 import mxnet as mx
 import numpy as np
 from mxnet import nd, autograd, gluon
 from mxnet.gluon.data.vision import transforms
 from gluoncv.data import transforms as gcv_transforms
-import tensorflow as tf
 
 from Msg import *
 from Worker import Worker
 from Utils import *
+from locationPicker_v3 import output_junctions
+import xml.etree.ElementTree as ET
 
 
 class Simulator:
@@ -46,6 +48,10 @@ class Simulator:
         self.worker_count = 0
         self.worker_conns = []
         self.worker_id_free = []
+
+        # Simulation (traffic) attributes
+        self.vehicle_dict = {}
+        self.edge_locations = {self.cfg['edge_ports'][i]: coordinates for i, coordinates in enumerate(output_junctions)}
 
     def transform(self, data, label):
         data = data.astype(np.float32) / 255
@@ -105,12 +111,23 @@ class Simulator:
                                                                             loss,
                                                                             accu))
 
-    def wait_for_free_worker_id(self, worker_conn):
+    def wait_for_free_worker_id(self, worker_conn, id):
         # while not self.terminated:
         id_msg = wait_for_message(worker_conn)
         self.worker_id_free.append(id_msg.get_payload())
+        self.vehicle_dict[id] = False
         with self.cv_main:
             self.cv_main.notify()  
+
+    def get_closest_edge_server_port(self, vehicle_x, vehicle_y):
+        shortest_distance = 99999999 # placeholder (a random large number)
+        closest_edge_server_port = None
+        for port, (x, y) in self.edge_locations.items():
+            distance = math.sqrt((x - vehicle_x) ** 2 + (y - vehicle_y) ** 2)
+            if distance <= self.cfg['v2rsu'] and distance < shortest_distance:
+                shortest_distance = distance
+                closest_edge_server_port = port
+        return closest_edge_server_port
 
     def process(self):
         """
@@ -154,29 +171,51 @@ class Simulator:
                 self.cv.wait()
         print(f"\n>>> All {len(self.worker_conns)} workers connected \n")
 
-        self.new_epoch()
-        while self.epoch <= self.cfg['num_epochs']:
+        # Parse map xml file
+        tree = ET.parse(self.cfg["FCD_FILE"])
+        root = tree.getroot()
 
-            # Run out of training data for the particular epoch
-            if not self.shuffled_data:
-                if self.epoch > 0:
-                    self.print_accu_loss()
-                self.new_epoch()
+        self.new_epoch()
+        # Maximum training epochs
+        while self.epoch <= self.cfg['num_epochs']:
+            # For each time step in the FCD file
+            for timestep in root[1000:]:
                 if self.epoch > self.cfg['num_epochs']:
                     break
             
-            data = self.shuffled_data.pop()
-            edge_port = self.cfg["edge_ports"][random.randint(0, len(self.edge_conns)-1)]
-            
-            with self.cv_main:
-                while len(self.worker_id_free) == 0:
-                    self.cv_main.wait()
-            
-            worker_conn = self.worker_conns[self.worker_id_free.pop()]
-            send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, (edge_port, data))
+                # For each vehicle on the map at the timestep
+                for vehicle in timestep.findall('vehicle'):
+                    # If vehicle not yet stored in vehicle_dict
+                    if vehicle.attrib['id'] not in self.vehicle_dict:
+                        self.vehicle_dict[vehicle.attrib['id']] = False
+                    # If True, the vehicle is already assigned a worker
+                    elif self.vehicle_dict[vehicle.attrib['id']]:
+                        continue
 
-            # Wait for the work to finish and send back its id in a new thread
-            threading.Thread(target=self.wait_for_free_worker_id, args=(worker_conn, )).start()
+                    edge_port = self.get_closest_edge_server_port(float(vehicle.attrib['x']), float(vehicle.attrib['y']))
+                    # Vehicle not in range of any edge server
+                    if edge_port is None:
+                        continue
+                    else:
+                        data = self.shuffled_data.pop()
+                        worker_conn = self.worker_conns[self.worker_id_free.pop()]
+                        send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, (edge_port, data))
+                        self.vehicle_dict[vehicle.attrib['id']] = True
+
+                        # Wait for the work to finish and send back its id in a new thread
+                        threading.Thread(target=self.wait_for_free_worker_id, args=(worker_conn, vehicle.attrib['id'] )).start()
+
+                    with self.cv_main:
+                        while len(self.worker_id_free) == 0:
+                            self.cv_main.wait()
+                 
+                    # Run out of training data for the particular epoch
+                    if not self.shuffled_data:
+                        if self.epoch > 0:
+                            self.print_accu_loss()
+                        self.new_epoch()
+                        if self.epoch > self.cfg['num_epochs']:
+                            break            
 
         # Close the connections with workers
         for worker_conn in self.worker_conns:

@@ -1,5 +1,5 @@
-num_edges: 2
-num_workers: 2
+num_edges: 1
+num_workers: 6
 
 sim_port_cloud: 10000
 sim_port_edge: 10001
@@ -24,7 +24,11 @@ batch_size: 100
 num_training_data: 50000
 num_val_loss: 10000
 
-num_epochs: 10
+num_epochs: 100
 
 learning_rate: 0.0005
 
+ROU_FILE: '../osm_boston_common/osm.passenger.trips.xml'
+NET_FILE: '../osm_boston_common/osm.net.xml'
+FCD_FILE: '../osm_boston_common/osm_fcd.xml'
+v2rsu: 100

@@ -41,6 +41,7 @@ def server_handle_connection(host, port, instance, persistent_connection, source
                 if source_type == InstanceType.SIMULATOR:
                     if client_type == InstanceType.WORKER:
                         instance.worker_conns.append(conn)
+                        # TODO: revisit worker ID
                         # assign id to worker
                         instance.worker_id_free.append(instance.worker_count) 
                         # send id to worker

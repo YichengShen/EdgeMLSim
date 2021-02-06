@@ -107,6 +107,7 @@ class CloudServer:
         send_message(self.connections[0], InstanceType.CLOUD_SERVER, PayloadType.PARAMETER, self.parameter)
 
     def send_model_to_simulator(self, simulator_conn):
+        # TODO: graceful termination (the while-loop + Timeout method)
         while not self.terminated:
             model_request_msg = wait_for_message(simulator_conn)
             if model_request_msg.get_payload_type() == PayloadType.REQUEST:
