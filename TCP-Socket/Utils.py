@@ -16,6 +16,10 @@ SIM_PORT_EDGE = SIM_PORT_CLOUD + 10000
 def server_handle_connection(host, port, instance, persistent_connection, source_type=None, client_type=None):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+    # the SO_REUSEADDR flag tells the kernel to reuse a local socket in TIME_WAIT state, 
+    # without waiting for its natural timeout to expire
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
     #Bind socket to local host and port
     try:
         s.bind((host, port))
