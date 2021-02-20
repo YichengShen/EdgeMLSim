@@ -191,7 +191,8 @@ class Simulator:
                     # If True, the vehicle is already assigned a worker
                     elif self.vehicle_dict[vehicle.attrib['id']]:
                         continue
-
+                    
+                    # edge_port = self.cfg["edge_ports"][random.randint(0, self.cfg['num_edges']-1)]
                     edge_port = self.get_closest_edge_server_port(float(vehicle.attrib['x']), float(vehicle.attrib['y']))
                     # Vehicle not in range of any edge server
                     if edge_port is None:
@@ -212,7 +213,8 @@ class Simulator:
                     # Run out of training data for the particular epoch
                     if not self.shuffled_data:
                         if self.epoch > 0:
-                            self.print_accu_loss()
+                            if self.epoch <= 10 or self.epoch % 10 == 0:
+                                self.print_accu_loss()
                         self.new_epoch()
                         if self.epoch > self.cfg['num_epochs']:
                             break            
