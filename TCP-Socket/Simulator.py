@@ -115,9 +115,8 @@ class Simulator:
         # while not self.terminated:
         id_msg = wait_for_message(worker_conn)
         self.worker_id_free.append(id_msg.get_payload())
-        self.vehicle_dict[id] = False
-        with self.cv_main:
-            self.cv_main.notify()  
+        self.vehicle_dict[id]['connection'] = None
+        self.vehicle_dict[id]['last_port'] = None
 
     def get_closest_edge_server_port(self, vehicle_x, vehicle_y):
         shortest_distance = 99999999 # placeholder (a random large number)
@@ -128,6 +127,15 @@ class Simulator:
                 shortest_distance = distance
                 closest_edge_server_port = port
         return closest_edge_server_port
+
+    # Check if the vehicle is still in the map in the next timestep
+    def in_map(self, root, timestep, v_id):
+        current_timestep = float(timestep.attrib['time'])
+        next_timestep = root.find('timestep[@time="{:.2f}"]'.format(current_timestep+1))
+        if next_timestep == None: # reached the end of fcd file
+            next_timestep = root.find('timestep[@time="{:.2f}"]'.format(0))
+        id_set = set(map(lambda vehicle: vehicle.attrib['id'], next_timestep.findall('vehicle')))
+        return v_id in id_set
 
     def process(self):
         """
@@ -179,37 +187,52 @@ class Simulator:
         # Maximum training epochs
         while self.epoch <= self.cfg['num_epochs']:
             # For each time step in the FCD file
-            for timestep in root[1000:]:
+            for timestep in root:
                 if self.epoch > self.cfg['num_epochs']:
-                    break
+                    break   
             
                 # For each vehicle on the map at the timestep
                 for vehicle in timestep.findall('vehicle'):
                     # If vehicle not yet stored in vehicle_dict
-                    if vehicle.attrib['id'] not in self.vehicle_dict:
-                        self.vehicle_dict[vehicle.attrib['id']] = False
-                    # If True, the vehicle is already assigned a worker
-                    elif self.vehicle_dict[vehicle.attrib['id']]:
-                        continue
-                    
-                    # edge_port = self.cfg["edge_ports"][random.randint(0, self.cfg['num_edges']-1)]
+                    v_id = vehicle.attrib['id']
+                    if v_id not in self.vehicle_dict:
+                        self.vehicle_dict[v_id] = {'connection': None, 'last_port': None}
+
+                    # edge_port is None if the vehicle is not in range of any edge server
                     edge_port = self.get_closest_edge_server_port(float(vehicle.attrib['x']), float(vehicle.attrib['y']))
-                    # Vehicle not in range of any edge server
-                    if edge_port is None:
-                        continue
+
+                    # Vehicle has training task currently
+                    if self.vehicle_dict[v_id]['connection'] is not None:
+                        worker_conn = self.vehicle_dict[v_id]['connection']
+                        data = None
                     else:
+                        # If no free worker, continue
+                        if not self.worker_id_free or edge_port is None:
+                            continue                  
+                        # If free worker available
+                        self.vehicle_dict[v_id]['connection'] = self.worker_conns[self.worker_id_free.pop()]
+                        # TODO: solve issue of worker_conn becoming None
+                        worker_conn = self.vehicle_dict[v_id]['connection']
                         data = self.shuffled_data.pop()
-                        worker_conn = self.worker_conns[self.worker_id_free.pop()]
-                        send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, (edge_port, data))
-                        self.vehicle_dict[vehicle.attrib['id']] = True
 
                         # Wait for the work to finish and send back its id in a new thread
-                        threading.Thread(target=self.wait_for_free_worker_id, args=(worker_conn, vehicle.attrib['id'] )).start()
+                        threading.Thread(target=self.wait_for_free_worker_id, args=(worker_conn, v_id)).start()
+                    
+                    # in_map returns False when the vehicle is no longer in the map in the next timestep
+                    in_map = self.in_map(root, timestep, v_id)
+                    
+                    # If vehicle has same port as last time and still in map, continue
+                    if edge_port == self.vehicle_dict[v_id]['last_port'] and in_map:
+                        continue
 
-                    with self.cv_main:
-                        while len(self.worker_id_free) == 0:
-                            self.cv_main.wait()
-                 
+                    self.vehicle_dict[v_id]['last_port'] = edge_port
+
+                    # Cases to send msg:
+                    # 1. First time assigning task
+                    # 2. Vehicle changes its port (this means leaving edge range or moving to a new edge server)
+                    # 3. Vehilce leaves map
+                    send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, (edge_port, data, in_map))
+
                     # Run out of training data for the particular epoch
                     if not self.shuffled_data:
                         if self.epoch > 0:
@@ -217,7 +240,8 @@ class Simulator:
                                 self.print_accu_loss()
                         self.new_epoch()
                         if self.epoch > self.cfg['num_epochs']:
-                            break            
+                            break   
+            time.sleep(1)
 
         # Close the connections with workers
         for worker_conn in self.worker_conns:
