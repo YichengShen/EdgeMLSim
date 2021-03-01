@@ -47,7 +47,7 @@ class Simulator:
         self.edge_conns = []
         self.worker_count = 0
         self.worker_conns = []
-        self.worker_id_free = []
+        self.worker_id_free = set()
 
         # Simulation (traffic) attributes
         self.vehicle_dict = {}
@@ -114,9 +114,8 @@ class Simulator:
     def wait_for_free_worker_id(self, worker_conn, id):
         # while not self.terminated:
         id_msg = wait_for_message(worker_conn)
-        self.worker_id_free.append(id_msg.get_payload())
-        self.vehicle_dict[id]['connection'] = None
-        self.vehicle_dict[id]['last_port'] = None
+        self.worker_id_free.add(id_msg.get_payload())
+        self.vehicle_dict[id]['training'] = False
 
     def get_closest_edge_server_port(self, vehicle_x, vehicle_y):
         shortest_distance = 99999999 # placeholder (a random large number)
@@ -196,28 +195,30 @@ class Simulator:
                     # If vehicle not yet stored in vehicle_dict
                     v_id = vehicle.attrib['id']
                     if v_id not in self.vehicle_dict:
-                        self.vehicle_dict[v_id] = {'connection': None, 'last_port': None}
+                        self.vehicle_dict[v_id] = {'training': False, 'connection': None, 'last_port': None}
 
                     # edge_port is None if the vehicle is not in range of any edge server
                     edge_port = self.get_closest_edge_server_port(float(vehicle.attrib['x']), float(vehicle.attrib['y']))
+                    data = None
 
-                    # Vehicle has training task currently
-                    if self.vehicle_dict[v_id]['connection'] is not None:
-                        worker_conn = self.vehicle_dict[v_id]['connection']
-                        data = None
-                    else:
+                    # Vehicle does not have training task currently
+                    if not self.vehicle_dict[v_id]['training']:
+                        self.vehicle_dict[v_id]['connection'] = None
+                        self.vehicle_dict[v_id]['last_port'] = None
+
                         # If no free worker, continue
                         if not self.worker_id_free or edge_port is None:
                             continue                  
                         # If free worker available
                         self.vehicle_dict[v_id]['connection'] = self.worker_conns[self.worker_id_free.pop()]
-                        # TODO: solve issue of worker_conn becoming None
-                        worker_conn = self.vehicle_dict[v_id]['connection']
+                        self.vehicle_dict[v_id]['training'] = True
                         data = self.shuffled_data.pop()
 
                         # Wait for the work to finish and send back its id in a new thread
-                        threading.Thread(target=self.wait_for_free_worker_id, args=(worker_conn, v_id)).start()
+                        threading.Thread(target=self.wait_for_free_worker_id, args=(self.vehicle_dict[v_id]['connection'], v_id)).start()
                     
+                    worker_conn = self.vehicle_dict[v_id]['connection']
+
                     # in_map returns False when the vehicle is no longer in the map in the next timestep
                     in_map = self.in_map(root, timestep, v_id)
                     
@@ -231,7 +232,8 @@ class Simulator:
                     # 1. First time assigning task
                     # 2. Vehicle changes its port (this means leaving edge range or moving to a new edge server)
                     # 3. Vehilce leaves map
-                    send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, (edge_port, data, in_map))
+                    if self.vehicle_dict[v_id]['training']:
+                        send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, (edge_port, data, in_map))
 
                     # Run out of training data for the particular epoch
                     if not self.shuffled_data:

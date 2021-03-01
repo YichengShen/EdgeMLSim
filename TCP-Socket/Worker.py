@@ -31,6 +31,9 @@ class Worker:
             self.model.add(gluon.nn.Dense(10, in_units=64))
         self.parameter = None
         self.data = None
+        self.request_model_finished = False
+        self.compute_finished = False
+        
 
     def process(self):
         host = socket.gethostname()
@@ -52,44 +55,45 @@ class Worker:
         while not self.terminated:
 
             with self.cv_start:
-                while self.edge_port is None and self.in_map:
+                while self.in_map and (self.edge_port is None or self.data is None):
                     self.cv_start.wait()
             print('notified_start')
 
+            if not self.in_map:
+                self.notify_finish(simulator_conn)
+                continue
+            
             # Send msg to Edge Server to ask for parameters
-            if self.edge_port is not None:
-                edge_conn = self.edge_conns[self.edge_port]
-                send_message(edge_conn, InstanceType.WORKER, PayloadType.REQUEST, b'request for parameter')
+            edge_conn = self.edge_conns[self.edge_port]
 
-                # Wait for response from Edge Server
-                parameter_msg = wait_for_message(edge_conn)
-                self.parameter = parameter_msg.get_payload()
+            send_message(edge_conn, InstanceType.WORKER, PayloadType.REQUEST, b'request for parameter')
+            self.request_model_finished = True
 
-                # Build a new model using parameters received from edge servers
-                self.build_model()
+            # Wait for response from Edge Server
+            parameter_msg = wait_for_message(edge_conn)
+            self.parameter = parameter_msg.get_payload()
+
+            # Build a new model using parameters received from edge servers
+            self.build_model()
         
             # Compute
-            if self.data is not None:
-                gradients = self.compute(self.data)
+            gradients = self.compute(self.data)
+            self.compute_finished = True
             
             with self.cv_send:
                 while self.edge_port is None and self.in_map:
                     self.cv_send.wait()
+                self.request_model_finished = False
             print("notified_send")
-            
-            if self.edge_port is not None:
-                try:
-                    # Send gradients to edge servers
-                    send_message(self.edge_conns[self.edge_port], InstanceType.WORKER, PayloadType.GRADIENT, gradients)
-                except:
-                    return
 
-            # Send msg to Simulator indicating task finished (now ready for new task)
-            send_message(simulator_conn, InstanceType.WORKER, PayloadType.ID, self.worker_id)
-            # print("finish message with id sent to simulator:", self.worker_id)
-            self.data = None
-            self.edge_port = None
-            self.in_map = True
+            if not self.in_map:
+                self.notify_finish(simulator_conn)
+                continue
+
+            # Send gradients to edge servers
+            send_message(self.edge_conns[self.edge_port], InstanceType.WORKER, PayloadType.GRADIENT, gradients)
+
+            self.notify_finish(simulator_conn)
 
     def receive_simulator_info(self, simulator_conn):
         while not self.terminated:
@@ -104,14 +108,20 @@ class Worker:
                 self.terminated = True
                 break
 
-            self.edge_port, self.data, self.in_map = data_msg.get_payload()
-
+            _edge_port, _data, self.in_map = data_msg.get_payload()
+            # first message
+            if self.data is None:
+                self.data = _data
+                self.edge_port = _edge_port
+            
+            if self.request_model_finished:
+                self.edge_port = _edge_port
+                
             if not self.in_map:
                 print('not in map')
 
-            if self.data is not None or not self.in_map:
-                with self.cv_start:
-                    self.cv_start.notify()
+            with self.cv_start:
+                self.cv_start.notify()
 
             with self.cv_send:
                 self.cv_send.notify()
@@ -137,6 +147,17 @@ class Worker:
                 grad_collect.append(param.grad().copy())
 
         return grad_collect
+
+    def notify_finish(self, simulator_conn):
+        # Send msg to Simulator indicating task finished (now ready for new task)
+        send_message(simulator_conn, InstanceType.WORKER, PayloadType.ID, self.worker_id)
+        # print("finish message with id sent to simulator:", self.worker_id)
+        self.data = None
+        self.edge_port = None
+        self.in_map = True
+        self.request_model_finished = False
+        self.compute_finished = False
+
 
 
 if __name__ == "__main__":
