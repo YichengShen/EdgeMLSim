@@ -43,7 +43,7 @@ def server_handle_connection(host, port, instance, persistent_connection, source
                         instance.worker_conns.append(conn)
                         # TODO: revisit worker ID
                         # assign id to worker
-                        instance.worker_id_free.append(instance.worker_count) 
+                        instance.worker_id_free.add(instance.worker_count) 
                         # send id to worker
                         send_message(conn, instance.type, PayloadType.ID, instance.worker_count)
                         instance.worker_count += 1
