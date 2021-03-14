@@ -10,7 +10,6 @@ from mxnet.gluon.data.vision import transforms
 from gluoncv.data import transforms as gcv_transforms
 
 from Msg import *
-from Worker import Worker
 from Utils import *
 from locationPicker_v3 import output_junctions
 import xml.etree.ElementTree as ET
@@ -26,7 +25,7 @@ class Simulator:
     """
     def __init__(self):
         # Config
-        self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
+        self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
 
         # ML attributes
         self.epoch = 0

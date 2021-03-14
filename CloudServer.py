@@ -3,31 +3,22 @@ import threading
 import mxnet as mx
 from mxnet import nd, gluon
 import numpy as np
-import tensorflow as tf
 from Msg import *
 from Utils import *
+from config import model, aggregation
 import yaml
-
-from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Dense
-from tensorflow.python.keras.layers import deserialize, serialize
-from tensorflow.python.keras.saving import saving_utils
 
 class CloudServer:
     def __init__(self):
         # Config
-        self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
+        self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
 
         # ML attributes
-            # Initialize MXNET model
-        self.model = gluon.nn.Sequential()
-        with self.model.name_scope():
-            self.model.add(gluon.nn.Dense(128, in_units=784, activation='relu'))
-            self.model.add(gluon.nn.Dense(64, in_units=128, activation='relu'))
-            self.model.add(gluon.nn.Dense(10, in_units=64))
+        # Initialize MXNET model from imports
+        self.model = model.MODEL
         self.model.initialize(mx.init.Xavier(), force_reinit=True)
 
-            # Retreat parameters from initialized model
+        # Retreat parameters from initialized model
         grad_collect = []
         for param in self.model.collect_params().values():
             grad_collect.append(param.data())
@@ -68,7 +59,7 @@ class CloudServer:
         while True:
             # wait for response from edge servers
             with self.cv:
-                while not self.terminated and len(self.accumulative_gradients) < self.cfg['max_cloud_gradients']:
+                while not self.terminated and aggregation.cloud_aggregate(self.accumulative_gradients):
                     self.cv.wait()
             # print('received responses from edge servers')
 

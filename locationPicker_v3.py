@@ -7,7 +7,7 @@ from sklearn.cluster import DBSCAN
 import yaml
 import pickle
 
-file = open('config.yml', 'r')
+file = open('config/config.yml', 'r')
 cfg = yaml.load(file, Loader=yaml.FullLoader)
 
 # np.random.seed(cfg['seed'])

@@ -3,6 +3,7 @@ import threading
 from mxnet import nd, gluon, autograd, init
 from Msg import *
 from Utils import *
+from config import model, loss
 import numpy as np
 import yaml
 
@@ -10,7 +11,7 @@ import yaml
 class Worker:
     def __init__(self):
         # Config
-        self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
+        self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
 
         # TCP attributes
         self.worker_id = None
@@ -23,11 +24,7 @@ class Worker:
         self.in_map = True
 
         # ML attributes
-        self.model = gluon.nn.Sequential()
-        with self.model.name_scope():
-            self.model.add(gluon.nn.Dense(128, in_units=784, activation='relu'))
-            self.model.add(gluon.nn.Dense(64, in_units=128, activation='relu'))
-            self.model.add(gluon.nn.Dense(10, in_units=64))
+        self.model = model.MODEL
         self.parameter = None
         self.data = None
         
@@ -121,11 +118,11 @@ class Worker:
         
         X, y = data
 
-        loss_object = gluon.loss.SoftmaxCrossEntropyLoss()
+        loss_object = loss.LOSS
         with autograd.record():
             output = self.model(X)
-            loss = loss_object(output, y)
-        loss.backward()
+            _loss = loss_object(output, y)
+        _loss.backward()
 
         grad_collect = []
         for param in self.model.collect_params().values():

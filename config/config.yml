@@ -28,7 +28,7 @@ num_epochs: 100
 
 learning_rate: 0.0005
 
-ROU_FILE: '../osm_boston_common/osm.passenger.trips.xml'
-NET_FILE: '../osm_boston_common/osm.net.xml'
-FCD_FILE: '../osm_boston_common/osm_fcd.xml'
+ROU_FILE: './osm_boston_common/osm.passenger.trips.xml'
+NET_FILE: './osm_boston_common/osm.net.xml'
+FCD_FILE: './osm_boston_common/osm_fcd.xml'
 v2rsu: 100

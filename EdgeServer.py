@@ -9,12 +9,13 @@ import yaml
 from Msg import *
 from Utils import *
 import CloudServer
+from config import aggregation
 
 
 class EdgeServer:
     def __init__(self, port_idx):
         # Config
-        self.cfg = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
+        self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
 
         # ML Attributes
         self.parameter = None
@@ -61,7 +62,7 @@ class EdgeServer:
         while True:
 
             with self.cv:
-                while not self.terminated and len(self.accumulative_gradients) < self.cfg['max_edge_gradients']:
+                while not self.terminated and aggregation.edge_aggregate(self.accumulative_gradients):
                     self.cv.wait()
             # print('received responses from workers')
 
