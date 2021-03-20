@@ -49,8 +49,11 @@ class Worker:
             
             # Send msg to Edge Server to ask for parameters
             with self.cv:
-                self.cv.wait_for(lambda: not self.in_map or (self.edge_port is not None and self.data is not None))
+                self.cv.wait_for(lambda: (not self.in_map or (self.edge_port is not None and self.data is not None)) or self.terminated)
                 print('notified_start')
+
+                if self.terminated:
+                    break
 
                 if not self.in_map:
                     self.notify_finish(simulator_conn)
@@ -90,8 +93,9 @@ class Worker:
             if data_msg.get_payload_type() == PayloadType.CONNECTION_SIGNAL:
                 simulator_conn.close()
                 print("Done")
-                #TODO: find a way to terminate this thread
                 self.terminated = True
+                with self.cv:
+                    self.cv.notify_all()
                 break
 
             _edge_port, _data, self.in_map = data_msg.get_payload()
