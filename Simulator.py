@@ -143,39 +143,31 @@ class Simulator:
         HOST = socket.gethostname()
 
         # Simulator listens for Cloud
-        cloud_conn_thread = threading.Thread(target=server_handle_connection, 
-                                             args=(HOST, self.cfg["sim_port_cloud"], self, True, self.type, InstanceType.CLOUD_SERVER))
-        cloud_conn_thread.start()
+        threading.Thread(target=server_handle_connection, 
+                        args=(HOST, self.cfg["sim_port_cloud"], self, True, self.type, InstanceType.CLOUD_SERVER)).start()
 
         # Simulator listens for Edge Servers
-        cloud_conn_thread = threading.Thread(target=server_handle_connection, 
-                                             args=(HOST, self.cfg["sim_port_edge"], self, True, self.type, InstanceType.EDGE_SERVER))
-        cloud_conn_thread.start()
+        threading.Thread(target=server_handle_connection, 
+                        args=(HOST, self.cfg["sim_port_edge"], self, True, self.type, InstanceType.EDGE_SERVER)).start()
 
         # Simulator starts to listen for Workers
-        connection_thread = threading.Thread(target=server_handle_connection, 
-                                             args=(HOST, self.cfg["sim_port_worker"], self, True, self.type, InstanceType.WORKER))
-        connection_thread.start()
+        threading.Thread(target=server_handle_connection, 
+                        args=(HOST, self.cfg["sim_port_worker"], self, True, self.type, InstanceType.WORKER)).start()
 
         print("\nSimulator listening\n")
 
-        # Wait for cloud to connect
         with self.cv:
-            while self.cloud_conn is None:
-                self.cv.wait()
-        print(f"\n>>> Cloud Server connected \n")
+            # Wait for cloud to connect
+            self.cv.wait_for(lambda: self.cloud_conn is not None)
+            print(f"\n>>> Cloud Server connected \n")
 
-        # Wait for edge servers to connect
-        with self.cv:
-            while len(self.edge_conns) < self.cfg['num_edges']:
-                self.cv.wait()
-        print(f"\n>>> All {len(self.edge_conns)} edge servers connected \n")
+            # Wait for edge servers to connect
+            self.cv.wait_for(lambda: len(self.edge_conns) >= self.cfg['num_edges'])
+            print(f"\n>>> All {len(self.edge_conns)} edge servers connected \n")
 
-        # Wait for all workers to connect
-        with self.cv:
-            while len(self.worker_conns) < self.cfg['num_workers']:
-                self.cv.wait()
-        print(f"\n>>> All {len(self.worker_conns)} workers connected \n")
+            # Wait for all workers to connect
+            self.cv.wait_for(lambda: len(self.worker_conns) >= self.cfg['num_workers'])
+            print(f"\n>>> All {len(self.worker_conns)} workers connected \n")
 
         # Parse map xml file
         tree = ET.parse(self.cfg["FCD_FILE"])

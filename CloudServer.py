@@ -19,10 +19,7 @@ class CloudServer:
         self.model.initialize(mx.init.Xavier(), force_reinit=True)
 
         # Retreat parameters from initialized model
-        grad_collect = []
-        for param in self.model.collect_params().values():
-            grad_collect.append(param.data())
-        self.parameter = grad_collect
+        self.parameter = [param.data() for param in self.model.collect_params().values()]
 
         self.accumulative_gradients = []
         
@@ -34,8 +31,6 @@ class CloudServer:
 
     def process(self):
         HOST = socket.gethostname()
-        # when PORT is 0, OS picks an available port for you in the bind step
-        PORT = 0
 
         # Build connection with Simulator
         simulator_conn = client_build_connection(HOST, self.cfg["sim_port_cloud"], wait_initial_msg=False)
@@ -59,8 +54,7 @@ class CloudServer:
         while True:
             # wait for response from edge servers
             with self.cv:
-                while not self.terminated and aggregation.cloud_aggregate(self.accumulative_gradients):
-                    self.cv.wait()
+                self.cv.wait_for(lambda: self.terminated or aggregation.cloud_aggregation_condition(self.accumulative_gradients))
             # print('received responses from edge servers')
 
             if self.terminated:
@@ -80,7 +74,7 @@ class CloudServer:
 
         # Update Model
         idx = 0
-        for j, (param) in enumerate(self.model.collect_params().values()):
+        for param in self.model.collect_params().values():
             if param.grad_req != 'null':
                 # mapping back to the collection of ndarray
                 # directly update model
@@ -89,10 +83,7 @@ class CloudServer:
                 idx += param.data().size
 
         # Retreat parameters from the newly updated model
-        grad_collect = []
-        for param in self.model.collect_params().values():
-            grad_collect.append(param.data())
-        self.parameter = grad_collect
+        self.parameter = [param.data() for param in self.model.collect_params().values()]
 
     def send_parameter(self):
         for conn in self.connections:

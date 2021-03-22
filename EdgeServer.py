@@ -31,8 +31,6 @@ class EdgeServer:
 
     def process(self):
         HOST = socket.gethostname()
-        # when PORT is 0, OS picks an available port for you in the bind step
-        PORT = 0
 
         # Build connection with Simulator
         simulator_conn = client_build_connection(HOST, self.cfg["sim_port_edge"], wait_initial_msg=False)
@@ -62,8 +60,7 @@ class EdgeServer:
         while True:
 
             with self.cv:
-                while not self.terminated and aggregation.edge_aggregate(self.accumulative_gradients):
-                    self.cv.wait()
+                self.cv.wait_for(lambda: self.terminated or aggregation.edge_aggregation_condition(self.accumulative_gradients))
             # print('received responses from workers')
 
             if self.terminated:
@@ -98,7 +95,7 @@ class EdgeServer:
         grad_collect = []
         idx = 0
 
-        for j, (param) in enumerate(gradients_to_aggregate[0]):
+        for param in gradients_to_aggregate[0]:
             # mapping back to the collection of ndarray
             # append to list for uploading to cloud
             grad_collect.append(mean_nd[idx:(idx+param.size)].reshape(param.shape))
