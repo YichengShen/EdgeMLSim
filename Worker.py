@@ -50,7 +50,7 @@ class Worker:
             # Send msg to Edge Server to ask for parameters
             with self.cv:
                 self.cv.wait_for(lambda: (not self.in_map or (self.edge_port is not None and self.data is not None)) or self.terminated)
-                print('notified_start')
+                # print('notified_start')
 
                 if self.terminated:
                     break
@@ -73,7 +73,7 @@ class Worker:
             # Send gradients to edge servers
             with self.cv:
                 self.cv.wait_for(lambda: self.edge_port is not None or not self.in_map)
-                print("notified_send")
+                # print("notified_send")
 
                 if not self.in_map:
                     self.notify_finish(simulator_conn)
@@ -92,7 +92,7 @@ class Worker:
             # Close connection if closing message received
             if data_msg.get_payload_type() == PayloadType.CONNECTION_SIGNAL:
                 simulator_conn.close()
-                print("Done")
+                # print("Done")
                 self.terminated = True
                 with self.cv:
                     self.cv.notify_all()
@@ -103,8 +103,8 @@ class Worker:
             if self.data is None:
                 self.data = _data
                 
-            if not self.in_map:
-                print('not in map')
+            # if not self.in_map:
+                # print('not in map')
 
             with self.cv:
                 self.edge_port = _edge_port
