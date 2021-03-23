@@ -47,7 +47,7 @@ class EdgeServer:
         threading.Thread(target=self.receive_parameter, args=(central_server_conn, )).start()
         
         # Start server and wait for workers to connect
-        threading.Thread(target=server_handle_connection, args=(HOST, self.port, self, True)).start()
+        threading.Thread(target=server_handle_connection, args=(HOST, self.port, self, True, self.type)).start()
         print("\nEdge Server listening\n")
 
         # wait for at least num_of_workers workers to join

@@ -35,7 +35,7 @@ def server_handle_connection(host, port, instance, persistent_connection, source
         try:
             conn, addr = s.accept()
             print('Connected with ' + addr[0] + ':' + str(addr[1]))
-            if source_type == None:
+            if source_type == None or source_type == InstanceType.EDGE_SERVER:
                 threading.Thread(target=connection_thread, args=(conn, instance, persistent_connection, source_type)).start()
             with instance.cv:
                 if source_type == InstanceType.SIMULATOR:
@@ -53,7 +53,8 @@ def server_handle_connection(host, port, instance, persistent_connection, source
                         instance.edge_conns.append(conn)
                 else:
                     instance.connections.append(conn)
-                    send_message(conn, instance.type, PayloadType.PARAMETER, instance.parameter)
+                    if source_type != InstanceType.EDGE_SERVER:
+                        send_message(conn, instance.type, PayloadType.PARAMETER, instance.parameter)
                 instance.cv.notify()
         except:
             if instance.terminated:
@@ -74,7 +75,7 @@ def connection_thread(conn, instance, persistent_connection, source_type):
         except OSError:
             sys.exit()
         if msg:
-            if source_type == None:
+            if source_type == None or source_type == InstanceType.EDGE_SERVER:
                 if msg.get_payload_type() == PayloadType.GRADIENT:
                     # used for both Cloud and Edge
                     with instance.cv:     
@@ -103,7 +104,11 @@ def client_build_connection(host, port, wait_initial_msg=True):
         sys.exit()
 
     # Connect to remote server
-    s.connect((remote_ip, port))
+    try:
+        s.connect((remote_ip, port))
+    except Exception as e:
+        print(f"Connection error: {e}")
+        sys.exit(1)
 
     if wait_initial_msg:
         # Wait for messages from remote server
