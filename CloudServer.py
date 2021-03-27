@@ -46,8 +46,7 @@ class CloudServer:
 
         # Wait for all edge servers to connect
         with self.cv:
-            while len(self.connections) < self.cfg['num_edges']:
-                self.cv.wait()
+            self.cv.wait_for(lambda: len(self.connections) >= self.cfg['num_edges'])
         print(f"\n>>> All {len(self.connections)} edge servers connected \n")
 
         # Keep waiting for new gradients

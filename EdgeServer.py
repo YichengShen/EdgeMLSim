@@ -53,9 +53,8 @@ class EdgeServer:
         # wait for at least num_of_workers workers to join
         # when a worker joins, we send a parameter to the worker
         with self.cv:
-            while len(self.connections) < self.cfg['num_workers']:
-                self.cv.wait()
-        print(f"\n>>> All {len(self.connections)} workers connected \n")
+            self.cv.wait_for(lambda: len(self.connections) >= self.cfg['num_workers'])
+            print(f"\n>>> All {len(self.connections)} workers connected \n")
 
         while True:
 
