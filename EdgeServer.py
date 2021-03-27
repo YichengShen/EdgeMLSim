@@ -9,7 +9,7 @@ import yaml
 from Msg import *
 from Utils import *
 import CloudServer
-from config import aggregation
+from config import config_ml
 
 
 class EdgeServer:
@@ -59,7 +59,7 @@ class EdgeServer:
         while True:
 
             with self.cv:
-                self.cv.wait_for(lambda: self.terminated or aggregation.edge_aggregation_condition(self.accumulative_gradients))
+                self.cv.wait_for(lambda: self.terminated or config_ml.edge_aggregation_condition(self.accumulative_gradients))
             # print('received responses from workers')
 
             if self.terminated:

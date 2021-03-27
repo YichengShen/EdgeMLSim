@@ -3,7 +3,7 @@ import threading
 from mxnet import nd, gluon, autograd, init
 from Msg import *
 from Utils import *
-from config import model, loss
+from config import config_ml
 import numpy as np
 import yaml
 
@@ -24,7 +24,7 @@ class Worker:
         self.in_map = True
 
         # ML attributes
-        self.model = model.MODEL
+        self.model = config_ml.MODEL
         self.parameter = None
         self.data = None
         
@@ -122,11 +122,11 @@ class Worker:
         
         X, y = data
 
-        loss_object = loss.LOSS
+        loss_object = config_ml.LOSS
         with autograd.record():
             output = self.model(X)
-            _loss = loss_object(output, y)
-        _loss.backward()
+            loss = loss_object(output, y)
+        loss.backward()
 
         grad_collect = []
         for param in self.model.collect_params().values():

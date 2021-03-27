@@ -5,7 +5,7 @@ from mxnet import nd, gluon
 import numpy as np
 from Msg import *
 from Utils import *
-from config import model, aggregation
+from config import config_ml
 import yaml
 
 class CloudServer:
@@ -15,7 +15,7 @@ class CloudServer:
 
         # ML attributes
         # Initialize MXNET model from imports
-        self.model = model.MODEL
+        self.model = config_ml.MODEL
         self.model.initialize(mx.init.Xavier(), force_reinit=True)
 
         # Retreat parameters from initialized model
@@ -53,7 +53,7 @@ class CloudServer:
         while True:
             # wait for response from edge servers
             with self.cv:
-                self.cv.wait_for(lambda: self.terminated or aggregation.cloud_aggregation_condition(self.accumulative_gradients))
+                self.cv.wait_for(lambda: self.terminated or config_ml.cloud_aggregation_condition(self.accumulative_gradients))
             # print('received responses from edge servers')
 
             if self.terminated:
