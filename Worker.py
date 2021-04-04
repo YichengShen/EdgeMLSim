@@ -49,8 +49,9 @@ class Worker:
             
             # Send msg to Edge Server to ask for parameters
             with self.cv:
+                print(self.in_map, self.edge_port, self.data, self.terminated)
                 self.cv.wait_for(lambda: (not self.in_map or (self.edge_port is not None and self.data is not None)) or self.terminated)
-                # print('notified_start')
+                print('notified_start')
 
                 if self.terminated:
                     break
@@ -72,8 +73,9 @@ class Worker:
 
             # Send gradients to edge servers
             with self.cv:
+                print('stuck 2')
                 self.cv.wait_for(lambda: self.edge_port is not None or not self.in_map)
-                # print("notified_send")
+                print("notified_send")
 
                 if not self.in_map:
                     self.notify_finish(simulator_conn)
@@ -103,8 +105,8 @@ class Worker:
             if self.data is None:
                 self.data = _data
                 
-            # if not self.in_map:
-                # print('not in map')
+            if not self.in_map:
+                print('not in map')
 
             with self.cv:
                 self.edge_port = _edge_port
