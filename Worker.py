@@ -49,9 +49,8 @@ class Worker:
             
             # Send msg to Edge Server to ask for parameters
             with self.cv:
-                print(self.in_map, self.edge_port, self.data, self.terminated)
-                self.cv.wait_for(lambda: (not self.in_map or (self.edge_port is not None and self.data is not None)) or self.terminated)
-                print('notified_start')
+                self.cv.wait_for(lambda: not self.in_map or (self.edge_port is not None and self.data is not None) or self.terminated)
+                # print('notified_start')
 
                 if self.terminated:
                     break
@@ -73,9 +72,8 @@ class Worker:
 
             # Send gradients to edge servers
             with self.cv:
-                print('stuck 2')
                 self.cv.wait_for(lambda: self.edge_port is not None or not self.in_map)
-                print("notified_send")
+                # print("notified_send")
 
                 if not self.in_map:
                     self.notify_finish(simulator_conn)
@@ -101,16 +99,19 @@ class Worker:
                 break
 
             _edge_port, _data, self.in_map = data_msg.get_payload()
+            # print('received', _edge_port, _data==None, self.data==None)
             # Only change data for the first messag
             if self.data is None:
                 self.data = _data
                 
-            if not self.in_map:
-                print('not in map')
+            # if not self.in_map:
+            #     print('not in map')
 
             with self.cv:
                 self.edge_port = _edge_port
                 self.cv.notify_all()
+
+            time.sleep(0.01)
 
     def build_model(self):
         self.model.initialize(init=init.Constant(0), force_reinit=True)
@@ -139,10 +140,10 @@ class Worker:
 
     def notify_finish(self, simulator_conn):
         # Send msg to Simulator indicating task finished (now ready for new task)
-        send_message(simulator_conn, InstanceType.WORKER, PayloadType.ID, self.worker_id)
         self.data = None
         self.edge_port = None
         self.in_map = True
+        send_message(simulator_conn, InstanceType.WORKER, PayloadType.ID, self.worker_id)
 
 
 if __name__ == "__main__":

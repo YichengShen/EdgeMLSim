@@ -150,7 +150,7 @@ class Simulator:
             if not self.pause_clock:
                 self.total_time += 1
             time.sleep(1)
-            print(len(self.shuffled_data), self.worker_id_free, threading.active_count())
+            # print(len(self.shuffled_data), self.worker_id_free, threading.active_count())
 
 
     def process(self):
@@ -214,6 +214,7 @@ class Simulator:
                 edge_port = self.get_closest_edge_server_port(float(vehicle.attrib['x']), float(vehicle.attrib['y']))
                 data = None
 
+                
                 # Vehicle does not have training task currently
                 if not self.vehicle_dict[v_id]['training']:
                     self.vehicle_dict[v_id]['connection'] = None
@@ -224,7 +225,8 @@ class Simulator:
                         if not self.worker_id_free or edge_port is None:
                             continue                  
                         # If free worker available
-                        self.vehicle_dict[v_id]['connection'] = self.worker_conns[self.worker_id_free.pop()]
+                        workerId = self.worker_id_free.pop()
+                        self.vehicle_dict[v_id]['connection'] = self.worker_conns[workerId]
                         self.vehicle_dict[v_id]['training'] = True
                         # Run out of training data for the particular epoch
                         if not self.shuffled_data:
@@ -238,8 +240,7 @@ class Simulator:
                             print('--------------------end pause-----------------------')
                             if self.epoch > self.cfg['num_epochs']:
                                 break
-                        else:
-                            data = self.shuffled_data.pop()
+                        data = self.shuffled_data.pop()
 
                     # Wait for the work to finish and send back its id in a new thread
                     threading.Thread(target=self.wait_for_free_worker_id, args=(self.vehicle_dict[v_id]['connection'], v_id)).start()
