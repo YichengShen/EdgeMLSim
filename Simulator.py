@@ -158,7 +158,10 @@ class Simulator:
             loop through sumo file
         """
 
-        HOST = socket.gethostname()
+        if self.cfg["local_run"]:
+            HOST = socket.gethostname()
+        else:
+            HOST = self.cfg["sim_ip"]
 
         # Simulator listens for Cloud
         threading.Thread(target=server_handle_connection, 

@@ -30,17 +30,22 @@ class Worker:
         
 
     def process(self):
-        host = socket.gethostname()
+        if self.cfg["local_run"]:
+            host_sim = socket.gethostname()
+            host_edge = socket.gethostname()
+        else:
+            host_sim = self.cfg["sim_ip"]
+            host_edge = self.cfg["sim_edge"]
 
         # Build connection with simulator
-        simulator_conn, id_msg = client_build_connection(host, self.cfg["sim_port_worker"])
+        simulator_conn, id_msg = client_build_connection(host_sim, self.cfg["sim_port_worker"])
         # print('connection with simulator established')
         self.worker_id = id_msg.get_payload()
         
         # Build connection with Edge Servers
         for idx in range(self.cfg["num_edges"]):
             edge_port = self.cfg["edge_ports"][idx]
-            edge_server_conn = client_build_connection(host, edge_port, wait_initial_msg=False)
+            edge_server_conn = client_build_connection(host_edge, edge_port, wait_initial_msg=False)
             self.edge_conns[edge_port] = edge_server_conn
 
         threading.Thread(target=self.receive_simulator_info, args=(simulator_conn, )).start()

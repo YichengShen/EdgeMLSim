@@ -30,7 +30,10 @@ class CloudServer:
         self.connections = []
 
     def process(self):
-        HOST = socket.gethostname()
+        if self.cfg["local_run"]:
+            HOST = socket.gethostname()
+        else:
+            HOST = self.cfg["cloud_ip"]
 
         # Build connection with Simulator
         simulator_conn = client_build_connection(HOST, self.cfg["sim_port_cloud"], wait_initial_msg=False)
