@@ -31,16 +31,18 @@ class CloudServer:
 
     def process(self):
         if self.cfg["local_run"]:
-            HOST = socket.gethostname()
+            HOST_SIM = socket.gethostname()
+            HOST_CLOUD = HOST_SIM
         else:
-            HOST = self.cfg["cloud_ip"]
+            HOST_SIM = self.cfg["sim_ip"]
+            HOST_CLOUD = self.cfg["cloud_ip"]
 
         # Build connection with Simulator
-        simulator_conn = client_build_connection(HOST, self.cfg["sim_port_cloud"], wait_initial_msg=False)
+        simulator_conn = client_build_connection(HOST_SIM, self.cfg["sim_port_cloud"], wait_initial_msg=False)
         print('connection with simulator established')
 
         # Run server
-        connection_thread = threading.Thread(target=server_handle_connection, args=(HOST, self.cfg["cloud_port"], self, True))
+        connection_thread = threading.Thread(target=server_handle_connection, args=(HOST_CLOUD, self.cfg["cloud_port"], self, True))
         connection_thread.start()
         print("\nCloud Server listening\n")
 

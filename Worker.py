@@ -35,7 +35,7 @@ class Worker:
             host_edge = socket.gethostname()
         else:
             host_sim = self.cfg["sim_ip"]
-            host_edge = self.cfg["sim_edge"]
+            host_edge = self.cfg["edge_ip"]
 
         # Build connection with simulator
         simulator_conn, id_msg = client_build_connection(host_sim, self.cfg["sim_port_worker"])

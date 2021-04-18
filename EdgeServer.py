@@ -31,26 +31,30 @@ class EdgeServer:
 
     def process(self):
         if self.cfg["local_run"]:
-            HOST = socket.gethostname()
+            HOST_SIM = socket.gethostname()
+            HOST_CLOUD = HOST_SIM
+            HOST_EDGE = HOST_SIM
         else:
-            HOST = self.cfg["edge_ip"]
+            HOST_SIM = self.cfg["sim_ip"]
+            HOST_CLOUD = self.cfg["cloud_ip"]
+            HOST_EDGE = self.cfg["edge_ip"]
 
         # Build connection with Simulator
-        simulator_conn = client_build_connection(HOST, self.cfg["sim_port_edge"], wait_initial_msg=False)
+        simulator_conn = client_build_connection(HOST_SIM, self.cfg["sim_port_edge"], wait_initial_msg=False)
         print('connection with simulator established')
 
         # Keep waiting for closing signal from Simulator
         threading.Thread(target=self.wait_to_close, args=(simulator_conn, )).start()
 
         # build_connection with cloud server
-        central_server_conn, msg = client_build_connection(HOST, self.cfg["cloud_port"])
+        central_server_conn, msg = client_build_connection(HOST_CLOUD, self.cfg["cloud_port"])
         self.parameter = msg.get_payload()
 
         # Keep waiting for new parameters from the central server
         threading.Thread(target=self.receive_parameter, args=(central_server_conn, )).start()
         
         # Start server and wait for workers to connect
-        threading.Thread(target=server_handle_connection, args=(HOST, self.port, self, True, self.type)).start()
+        threading.Thread(target=server_handle_connection, args=(HOST_EDGE, self.port, self, True, self.type)).start()
         print("\nEdge Server listening\n")
 
         # wait for at least num_of_workers workers to join
