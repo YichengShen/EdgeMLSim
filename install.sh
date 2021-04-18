@@ -6,7 +6,7 @@ function install_python() {
     sudo apt install -y software-properties-common
     sudo add-apt-repository -y ppa:deadsnakes/ppa
     sudo apt update
-    sudo apt install -y ${py_ver}
+    sudo apt install -y ${python_version}
     python3.8 --version
 }
 
