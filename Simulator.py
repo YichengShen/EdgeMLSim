@@ -72,11 +72,11 @@ class Simulator:
         num_training_data = self.cfg['num_training_data']
         
         # Load Data
-        self.train_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('../data/mnist', train=True, transform=self.transform).take(num_training_data),
+        self.train_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('./data/mnist', train=True, transform=self.transform).take(num_training_data),
                                 batch_size, shuffle=True, last_batch='discard')
-        self.val_train_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('../data/mnist', train=True, transform=self.transform).take(self.cfg['num_val_loss']),
+        self.val_train_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('./data/mnist', train=True, transform=self.transform).take(self.cfg['num_val_loss']),
                                     batch_size, shuffle=False, last_batch='keep')
-        self.val_test_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('../data/mnist', train=False, transform=self.transform),
+        self.val_test_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('./data/mnist', train=False, transform=self.transform),
                                     batch_size, shuffle=False, last_batch='keep')
 
     def new_epoch(self):
