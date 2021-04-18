@@ -12,6 +12,7 @@ function install_python() {
 
 function install_pip() {
     curl "https://bootstrap.pypa.io/get-pip.py" -o "get-pip.py"
+    sudo apt-get install python3.8-distutils
     python3.8 get-pip.py --user
 }
 
