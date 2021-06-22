@@ -1,4 +1,4 @@
-local_run: false
+local_run: true
 
 sim_ip: 10.10.1.1
 cloud_ip: 10.10.1.2

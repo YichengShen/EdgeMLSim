@@ -83,7 +83,7 @@ class Simulator:
         self.epoch += 1
         
         # Shuffle data before each new epoch
-        for i, (data, label) in enumerate(self.train_data):
+        for data, label in self.train_data:
             self.shuffled_data.append((data, label))
 
     def get_model(self):
@@ -94,11 +94,11 @@ class Simulator:
     def get_accu_loss(self):
         model = self.get_model()
         # Calculate accuracy on testing data
-        for i, (data, label) in enumerate(self.val_test_data):
+        for data, label in self.val_test_data:
             outputs = model(data)
             self.epoch_accuracy.update(label, outputs)
         # Calculate loss (cross entropy) on training data
-        for i, (data, label) in enumerate(self.val_train_data):
+        for data, label in self.val_train_data:
             outputs = model(data)
             self.epoch_loss.update(label, nd.softmax(outputs))
 
