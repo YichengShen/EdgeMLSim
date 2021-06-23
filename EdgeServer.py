@@ -95,16 +95,14 @@ class EdgeServer:
         gradients_to_aggregate = self.accumulative_gradients[:self.cfg['max_edge_gradients']]
         self.accumulative_gradients = self.accumulative_gradients[self.cfg['max_edge_gradients']:]
 
-        # X is a 2d list of nd array
-        param_list = [nd.concat(*[xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients_to_aggregate]
-        mean_nd = nd.mean(nd.concat(*param_list, dim=1), axis=-1)
+        aggregated_nd = config_ml.aggre(gradients_to_aggregate)
+
         grad_collect = []
         idx = 0
-
         for param in gradients_to_aggregate[0]:
             # mapping back to the collection of ndarray
             # append to list for uploading to cloud
-            grad_collect.append(mean_nd[idx:(idx+param.size)].reshape(param.shape))
+            grad_collect.append(aggregated_nd[idx:(idx+param.size)].reshape(param.shape))
             idx += param.size
         return grad_collect
 

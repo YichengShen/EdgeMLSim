@@ -73,8 +73,7 @@ class CloudServer:
         self.accumulative_gradients = self.accumulative_gradients[self.cfg['max_cloud_gradients']:]
 
         # Aggregate accumulative gradients
-        param_list = [nd.concat(*[xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients_to_aggregate]
-        mean_nd = nd.mean(nd.concat(*param_list, dim=1), axis=-1)
+        aggregated_nd = config_ml.aggre(gradients_to_aggregate)
 
         # Update Model
         idx = 0
@@ -83,7 +82,7 @@ class CloudServer:
                 # mapping back to the collection of ndarray
                 # directly update model
                 lr = self.cfg['learning_rate']
-                param.set_data(param.data() - lr * mean_nd[idx:(idx+param.data().size)].reshape(param.data().shape))
+                param.set_data(param.data() - lr * aggregated_nd[idx:(idx+param.data().size)].reshape(param.data().shape))
                 idx += param.data().size
 
         # Retreat parameters from the newly updated model
