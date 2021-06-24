@@ -130,3 +130,7 @@ dmypy.json
 .DS_Store
 
 .idea
+
+# Collected results and model checkpoints
+collected_results
+model_checkpoints

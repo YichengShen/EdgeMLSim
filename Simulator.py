@@ -1,6 +1,8 @@
+import os
 import socket
 import threading
 import yaml
+import csv
 import random
 import math
 import time
@@ -14,6 +16,7 @@ from Msg import *
 from Utils import *
 from locationPicker_v3 import output_junctions
 import xml.etree.ElementTree as ET
+from config import config_ml
 
 
 class Simulator:
@@ -91,8 +94,7 @@ class Simulator:
         model_msg = wait_for_message(self.cloud_conn)
         return model_msg.get_payload()
 
-    def get_accu_loss(self):
-        model = self.get_model()
+    def get_accu_loss(self, model):
         # Calculate accuracy on testing data
         for data, label in self.val_test_data:
             outputs = model(data)
@@ -102,14 +104,15 @@ class Simulator:
             outputs = model(data)
             self.epoch_loss.update(label, nd.softmax(outputs))
 
-
     def print_accu_loss(self):
         self.epoch_accuracy.reset()
         self.epoch_loss.reset()
         print("finding accu and loss ...")
 
+        model = self.get_model()
+
         # Calculate accuracy and loss
-        self.get_accu_loss()
+        self.get_accu_loss(model)
 
         _, accu = self.epoch_accuracy.get()
         _, loss = self.epoch_loss.get()
@@ -118,6 +121,24 @@ class Simulator:
                                                                                     loss,
                                                                                     accu,
                                                                                     self.total_time))
+        self.save(model, self.epoch, accu, loss, time)
+    
+    def save(self, model, epoch, accu, loss, time):
+        # Save model checkpoints
+        if not os.path.exists('model_checkpoints'):
+            os.makedirs('model_checkpoints')
+        checkpoint_file_name = self.cfg['dataset'] + '-' + config_ml.AGGREGATION_METHOD + '-Epoch' + str(epoch) + '-round' + str(self.cfg['round']) + '.params'
+        checkpoint_path = os.path.join('model_checkpoints', checkpoint_file_name)
+        model.save_parameters(checkpoint_path)
+
+        # Save accu, loss, etc
+        if not os.path.exists('collected_results'):
+            os.makedirs('collected_results')
+        dir_name = self.cfg['dataset'] + '-' + config_ml.AGGREGATION_METHOD + '-' + 'round' + str(self.cfg['round']) + '.csv'
+        p = os.path.join('collected_results', dir_name)
+        with open(p, mode='a') as f:
+            writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            writer.writerow([epoch, accu, loss, time])
 
     def wait_for_free_worker_id(self, worker_conn, id):
         # while not self.terminated:
