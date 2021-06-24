@@ -1,5 +1,6 @@
 import yaml
 from mxnet import gluon, nd
+import byzantine
 
 cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
 
@@ -31,10 +32,11 @@ def edge_aggregation_condition(accumulative_gradients):
 AGGREGATION_METHOD = "mean"
 # AGGREGATION_METHOD = "marginal median"
 
-def aggre(gradients_to_aggregate):
+def aggre(gradients_to_aggregate, byz=byzantine.no_byz):
     # Flatten the gradients
     # param_list shape: (flattened size, n) if there are n gradients
     param_list = [nd.concat(*[xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients_to_aggregate]
+    byz(param_list, F, grad_example=gradients_to_aggregate[0]) # See Byzantine section below
     aggregated_gradients = None
     if AGGREGATION_METHOD == "mean":
         aggregated_gradients = nd.mean(nd.concat(*param_list, dim=1), axis=-1)
@@ -53,6 +55,18 @@ def aggre(gradients_to_aggregate):
     else:
         print("Undefined aggregation method")
     return aggregated_gradients
+
+
+################################################
+#                  Byzantine                   #
+################################################ 
+# Byzantine types: no_byz, gaussian_attack, bitflip_attack, signflip_attack (See byzantine.py)   
+# 1. At Cloud Server level
+BYZ_TYPE_CLOUD = byzantine.no_byz
+# 2. At Edge Server level
+BYZ_TYPE_EDGE = byzantine.signflip_attack
+# Number of Faulty Gradients
+F = 2
 
 
 ################################################

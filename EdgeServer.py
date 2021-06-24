@@ -95,7 +95,7 @@ class EdgeServer:
         gradients_to_aggregate = self.accumulative_gradients[:self.cfg['max_edge_gradients']]
         self.accumulative_gradients = self.accumulative_gradients[self.cfg['max_edge_gradients']:]
 
-        aggregated_nd = config_ml.aggre(gradients_to_aggregate)
+        aggregated_nd = config_ml.aggre(gradients_to_aggregate, byz=config_ml.BYZ_TYPE_EDGE)
 
         grad_collect = []
         idx = 0

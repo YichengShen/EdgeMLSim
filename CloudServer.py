@@ -73,7 +73,7 @@ class CloudServer:
         self.accumulative_gradients = self.accumulative_gradients[self.cfg['max_cloud_gradients']:]
 
         # Aggregate accumulative gradients
-        aggregated_nd = config_ml.aggre(gradients_to_aggregate)
+        aggregated_nd = config_ml.aggre(gradients_to_aggregate, byz=config_ml.BYZ_TYPE_CLOUD)
 
         # Update Model
         idx = 0
