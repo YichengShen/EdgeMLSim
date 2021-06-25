@@ -11,6 +11,7 @@ import numpy as np
 from mxnet import nd, autograd, gluon
 from mxnet.gluon.data.vision import transforms
 from gluoncv.data import transforms as gcv_transforms
+import psutil
 
 from Msg import *
 from Utils import *
@@ -88,6 +89,9 @@ class Simulator:
         # Shuffle data before each new epoch
         for data, label in self.train_data:
             self.shuffled_data.append((data, label))
+
+        # Print network stats
+        print(psutil.net_io_counters())
 
     def get_model(self):
         send_message(self.cloud_conn, InstanceType.SIMULATOR, PayloadType.REQUEST, b'ask for model')

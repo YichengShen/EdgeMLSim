@@ -5,3 +5,4 @@ mxnet==1.8.0.post0
 gluoncv==0.8.0
 PyYAML==5.4.1
 scikit_learn==0.24.1
+psutil
