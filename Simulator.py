@@ -91,7 +91,7 @@ class Simulator:
             self.shuffled_data.append((data, label))
 
         # Print network stats
-        print(psutil.net_io_counters())
+        # print(psutil.net_io_counters())
 
     def get_model(self):
         send_message(self.cloud_conn, InstanceType.SIMULATOR, PayloadType.REQUEST, b'ask for model')
