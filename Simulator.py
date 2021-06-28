@@ -2,6 +2,7 @@ import os
 import socket
 import threading
 import yaml
+import argparse
 import csv
 import random
 import math
@@ -28,9 +29,10 @@ class Simulator:
         a. In each epoch, shuffle data
             - For each data batch in the epoch, send an edge server port number and the data to a worker
     """
-    def __init__(self):
+    def __init__(self, num_round):
         # Config
         self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
+        self.num_round = num_round
 
         # ML attributes
         self.epoch = 0
@@ -131,14 +133,14 @@ class Simulator:
         # Save model checkpoints
         if not os.path.exists('model_checkpoints'):
             os.makedirs('model_checkpoints')
-        checkpoint_file_name = self.cfg['dataset'] + '-' + config_ml.AGGREGATION_METHOD + '-Epoch' + str(epoch) + '-round' + str(self.cfg['round']) + '.params'
+        checkpoint_file_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-Epoch' + str(epoch) + '-' + str(self.num_round) + '.params'
         checkpoint_path = os.path.join('model_checkpoints', checkpoint_file_name)
         model.save_parameters(checkpoint_path)
 
         # Save accu, loss, etc
         if not os.path.exists('collected_results'):
             os.makedirs('collected_results')
-        dir_name = self.cfg['dataset'] + '-' + config_ml.AGGREGATION_METHOD + '-' + 'round' + str(self.cfg['round']) + '.csv'
+        dir_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-' + str(self.num_round) + '.csv'
         p = os.path.join('collected_results', dir_name)
         with open(p, mode='a') as f:
             writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -310,6 +312,17 @@ class Simulator:
         self.terminated = True
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train a model for image classification.')
+    parser.add_argument('--num-round', type=int, default=0,
+                        help='number of round.')
+    opt = parser.parse_args()
+    return opt
+
+
 if __name__ == "__main__":
-    simulator = Simulator()
+    opt = parse_args()
+    num_round = opt.num_round
+    
+    simulator = Simulator(num_round)
     simulator.process()

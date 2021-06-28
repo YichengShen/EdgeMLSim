@@ -29,8 +29,7 @@ def edge_aggregation_condition(accumulative_gradients):
 #              Aggregation Method              #
 ################################################
 
-AGGREGATION_METHOD = "mean"
-# AGGREGATION_METHOD = "marginal median"
+AGGREGATION_METHOD = cfg['aggregation_method']
 
 def aggre(gradients_to_aggregate, byz=byzantine.no_byz):
     # Flatten the gradients
@@ -62,11 +61,27 @@ def aggre(gradients_to_aggregate, byz=byzantine.no_byz):
 ################################################ 
 # Byzantine types: no_byz, gaussian_attack, bitflip_attack, signflip_attack (See byzantine.py)   
 # 1. At Cloud Server level
-BYZ_TYPE_CLOUD = byzantine.no_byz
+if cfg['byzantine_type_cloud'] == 'gaussian_attack':
+    BYZ_TYPE_CLOUD = byzantine.gaussian_attack
+elif cfg['byzantine_type_cloud'] == 'bitflip_attack':
+    BYZ_TYPE_CLOUD = byzantine.bitflip_attack
+elif cfg['byzantine_type_cloud'] == 'signflip_attack':
+    BYZ_TYPE_CLOUD = byzantine.signflip_attack
+else:
+    BYZ_TYPE_CLOUD = byzantine.no_byz
+
 # 2. At Edge Server level
-BYZ_TYPE_EDGE = byzantine.signflip_attack
+if cfg['byzantine_type_edge'] == 'gaussian_attack':
+    BYZ_TYPE_EDGE = byzantine.gaussian_attack
+elif cfg['byzantine_type_edge'] == 'bitflip_attack':
+    BYZ_TYPE_EDGE = byzantine.bitflip_attack
+elif cfg['byzantine_type_edge'] == 'signflip_attack':
+    BYZ_TYPE_EDGE = byzantine.signflip_attack
+else:
+    BYZ_TYPE_EDGE = byzantine.no_byz
+
 # Number of Faulty Gradients
-F = 2
+F = cfg['num_faulty_grad']
 
 
 ################################################

@@ -1,14 +1,12 @@
 local_run: true
 python_version: python3.8
 
-round: 0
-
 sim_ip: 10.10.1.1
 cloud_ip: 10.10.1.2
 edge_ip: 10.10.1.3
 
-num_edges: 10
-num_workers: 50
+num_edges: 2
+num_workers: 2
 
 sim_port_cloud: 10000
 sim_port_edge: 10001
@@ -28,6 +26,13 @@ edge_ports:
 
 max_cloud_gradients: 10
 max_edge_gradients: 10
+
+aggregation_method: mean # mean, marginal_median
+
+# Byzantine types: no_byz, gaussian_attack, bitflip_attack, signflip_attack (See byzantine.py)   
+byzantine_type_cloud: no_byz
+byzantine_type_edge: no_byz 
+num_faulty_grad: 2
 
 batch_size: 100
 num_training_data: 50000

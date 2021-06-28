@@ -22,7 +22,7 @@
     - In the Simulator VM, run
         ```
         tmux
-        . run/sim.sh
+        . run/sim.sh [num_round]
         ```
     - In the Cloud VM, run
         ```
