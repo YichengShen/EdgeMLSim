@@ -6,6 +6,7 @@ from Utils import *
 from config import config_ml
 import numpy as np
 import yaml
+import os
 
 
 class Worker:
@@ -27,6 +28,7 @@ class Worker:
         self.model = config_ml.MODEL
         self.parameter = None
         self.data = None
+        self.previous_gradient = None
         
 
     def process(self):
@@ -72,8 +74,13 @@ class Worker:
             parameter_msg = wait_for_message(edge_conn)
             self.parameter = parameter_msg.get_payload()
             # Compute
-            gradients = self.compute(self.data)
+            gradient = self.compute(self.data) # list of ndarray
 
+            # Shrink gradient to save bandwidth
+            shrunk_gradient = self.shrink_gradient(gradient) # list of (index, ndarray)
+            
+            # Store the previous gradient for comparison next time
+            self.previous_gradient = gradient
 
             # Send gradients to edge servers
             with self.cv:
@@ -84,10 +91,35 @@ class Worker:
                     self.notify_finish(simulator_conn)
                     continue
                 
-                send_message(self.edge_conns[self.edge_port], InstanceType.WORKER, PayloadType.GRADIENT, gradients)
+                send_message(self.edge_conns[self.edge_port], InstanceType.WORKER, PayloadType.GRADIENT, shrunk_gradient)
 
             # Finish
             self.notify_finish(simulator_conn)
+
+
+    def shrink_gradient(self, gradient):
+        # Convert the gradient list to a list of tuples --> (index, ndarray)
+        gradient_indexed = [(i, param) for i, param in enumerate(gradient)]
+
+        # If this is the first gradient of the worker
+        if self.previous_gradient is None:
+            return gradient_indexed
+        else:
+            # Compare with the previous gradient
+            # and shrink the current gradient
+            abs_means = []
+            for i in range(len(gradient)):
+                current_grad = gradient[i].asnumpy()
+                previous_grad = self.previous_gradient[i].asnumpy()
+                print("current")
+                print(np.mean(np.absolute(current_grad)))
+                print("current-previous")
+                print(np.mean(np.absolute(current_grad - previous_grad)))
+                
+            print("-------")
+
+                # print(np.mean(np.absolute(np.divide((current_grad - previous_grad), previous_grad))))
+                # print(np.mean(np.absolute(current_grad - previous_grad))/np.sum(np.absolute(previous_grad)))
 
     def receive_simulator_info(self, simulator_conn):
         while not self.terminated:

@@ -10,6 +10,7 @@ from Msg import *
 from Utils import *
 import CloudServer
 from config import config_ml
+import os
 
 
 class EdgeServer:
@@ -94,6 +95,8 @@ class EdgeServer:
     def aggregate(self):
         gradients_to_aggregate = self.accumulative_gradients[:self.cfg['max_edge_gradients']]
         self.accumulative_gradients = self.accumulative_gradients[self.cfg['max_edge_gradients']:]
+
+        gradients_to_aggregate = [[param for (i, param) in each_grad] for each_grad in gradients_to_aggregate]
 
         aggregated_nd = config_ml.aggre(gradients_to_aggregate, byz=config_ml.BYZ_TYPE_EDGE)
 
