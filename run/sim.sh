@@ -15,7 +15,7 @@ fuser -k $((cfg_sim_port_worker))/tcp
 # Run Simulator
 trap 'kill $(jobs -p)' SIGINT SIGTERM EXIT
 
-python3 Simulator.py &
+$cfg_python_version Simulator.py &
 simulator_pid=$!
 
 wait $simulator_pid

@@ -1,4 +1,5 @@
-local_run: false
+local_run: true
+python_version: python3.8
 
 round: 0
 

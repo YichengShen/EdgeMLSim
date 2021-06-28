@@ -11,7 +11,7 @@ trap 'kill $(jobs -p)' SIGINT SIGTERM EXIT
 
 for (( counter=$cfg_num_workers-1; counter>=0; counter-- ))
 do
-python3.8 Worker.py &
+$cfg_python_version Worker.py &
 if [ $counter == $cfg_num_workers-1 ]
 then
     worker_pid=$!

@@ -16,7 +16,7 @@ do
 declare -i current_port=$((FIRST_PORT + counter))
 # Free up port
 fuser -k $current_port/tcp
-python3.8 EdgeServer.py --port_index $counter &
+$cfg_python_version EdgeServer.py --port_index $counter &
 if [ $current_port == $FIRST_PORT ]
 then
     edge_pid=$!

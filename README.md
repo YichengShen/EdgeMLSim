@@ -14,14 +14,20 @@
 2. Modify config
 
     - In `config/config.yml`, set `local_run: false`.
-    - Change ip address (`sim_ip`, `cloud_ip`, `edge_ip`) to match the ip of your VMs.
+    - Change ip address (`sim_ip`, `cloud_ip`, `edge_ip`) to match the internal ip of your VMs.
     - Change `round` to record results.
     
-3. Run (Similar to running Python files seperately on local machines)
-    ```
-    tmux
-    python3.8 Simulator.py
-    python3.8 CloudServer.py
-    ...
-    ```
+3. Run
+    - Stay at the root directory of the project
+    - In the Simulator VM, run
+        ```
+        tmux
+        . run/sim.sh
+        ```
+    - In the Cloud VM, run
+        ```
+        tmux
+        . run/cloud.sh
+        ``` 
+    - Do the same for edge servers and workers.
 

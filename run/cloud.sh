@@ -12,7 +12,7 @@ fuser -k $((cfg_cloud_port))/tcp
 # Run Cloud Server
 trap 'kill $(jobs -p)' SIGINT SIGTERM EXIT
 
-python3 CloudServer.py &
+$cfg_python_version CloudServer.py &
 cloud_pid=$!
 
 wait $cloud_pid
