@@ -15,7 +15,6 @@
 
     - In `config/config.yml`, set `local_run: false`.
     - Change ip address (`sim_ip`, `cloud_ip`, `edge_ip`) to match the internal ip of your VMs.
-    - Change `round` to record results.
     
 3. Run
     - Stay at the root directory of the project

@@ -1,12 +1,12 @@
-local_run: true
+local_run: false
 python_version: python3.8
 
 sim_ip: 10.10.1.1
 cloud_ip: 10.10.1.2
 edge_ip: 10.10.1.3
 
-num_edges: 2
-num_workers: 2
+num_edges: 1
+num_workers: 50
 
 sim_port_cloud: 10000
 sim_port_edge: 10001
