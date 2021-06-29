@@ -127,7 +127,7 @@ class Simulator:
                                                                                     loss,
                                                                                     accu,
                                                                                     self.total_time))
-        self.save(model, self.epoch, accu, loss, time)
+        self.save(model, self.epoch, accu, loss, self.total_time)
     
     def save(self, model, epoch, accu, loss, time):
         # Save model checkpoints
@@ -323,6 +323,6 @@ def parse_args():
 if __name__ == "__main__":
     opt = parse_args()
     num_round = opt.num_round
-    
+
     simulator = Simulator(num_round)
     simulator.process()
