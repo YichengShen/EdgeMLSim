@@ -40,7 +40,7 @@ num_val_loss: 10000
 
 num_epochs: 100
 
-learning_rate: 0.0005
+learning_rate: 0.002
 
 ROU_FILE: './osm_boston_common/osm.passenger.trips.xml'
 NET_FILE: './osm_boston_common/osm.net.xml'
