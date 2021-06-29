@@ -263,8 +263,8 @@ class Simulator:
                             self.pause_clock = True
                             print('------------------start pause-----------------------')
                             if self.epoch > 0:
-                                if self.epoch <= 10 or self.epoch % 10 == 0:
-                                    self.print_accu_loss()
+                                # if self.epoch <= 10 or self.epoch % 10 == 0:
+                                self.print_accu_loss()
                             self.new_epoch()
                             self.pause_clock = False
                             print('--------------------end pause-----------------------')
