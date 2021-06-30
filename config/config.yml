@@ -5,7 +5,7 @@ sim_ip: 10.142.0.4
 cloud_ip: 10.142.0.5
 edge_ip: 10.142.0.6
 
-num_edges: 5
+num_edges: 3
 num_workers: 100
 
 sim_port_cloud: 10000
