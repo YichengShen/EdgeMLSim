@@ -9,10 +9,11 @@ eval $(parse_yaml $CONFIG_PATH "cfg_")
 # Run all workers
 trap 'kill $(jobs -p)' SIGINT SIGTERM EXIT
 
-for (( counter=$cfg_num_workers-1; counter>=0; counter-- ))
+NUM_WORKERS=50
+for (( counter=$NUM_WORKERS-1; counter>=0; counter-- ))
 do
 $cfg_python_version Worker.py &
-if [ $counter == $cfg_num_workers-1 ]
+if [ $counter == $NUM_WORKERS-1 ]
 then
     worker_pid=$!
 fi

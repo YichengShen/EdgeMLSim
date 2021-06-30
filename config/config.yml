@@ -1,12 +1,12 @@
 local_run: false
 python_version: python3.8
 
-sim_ip: 10.128.0.50
-cloud_ip: 10.128.0.51
-edge_ip: 10.128.0.52
+sim_ip: 10.128.15.193
+cloud_ip: 10.128.0.63
+edge_ip: 10.128.15.192
 
 num_edges: 3
-num_workers: 50
+num_workers: 100
 
 sim_port_cloud: 10000
 sim_port_edge: 10001
@@ -40,7 +40,7 @@ num_val_loss: 10000
 
 num_epochs: 100
 
-learning_rate: 0.002
+learning_rate: 0.001
  
 ROU_FILE: './osm_boston_common/osm.passenger.trips.xml'
 NET_FILE: './osm_boston_common/osm.net.xml'
