@@ -38,7 +38,7 @@ batch_size: 100
 num_training_data: 50000
 num_val_loss: 10000
 
-num_epochs: 100
+num_epochs: 30
 
 learning_rate: 0.001
  
