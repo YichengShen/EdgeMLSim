@@ -131,11 +131,11 @@ class Simulator:
     
     def save(self, model, epoch, accu, loss, time):
         # Save model checkpoints
-        if not os.path.exists('model_checkpoints'):
-            os.makedirs('model_checkpoints')
-        checkpoint_file_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-Epoch' + str(epoch) + '-' + str(self.num_round) + '.params'
-        checkpoint_path = os.path.join('model_checkpoints', checkpoint_file_name)
-        model.save_parameters(checkpoint_path)
+        # if not os.path.exists('model_checkpoints'):
+        #     os.makedirs('model_checkpoints')
+        # checkpoint_file_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-Epoch' + str(epoch) + '-' + str(self.num_round) + '.params'
+        # checkpoint_path = os.path.join('model_checkpoints', checkpoint_file_name)
+        # model.save_parameters(checkpoint_path)
 
         # Save accu, loss, etc
         if not os.path.exists('collected_results'):
