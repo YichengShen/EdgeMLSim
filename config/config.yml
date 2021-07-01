@@ -27,7 +27,7 @@ edge_ports:
 max_cloud_gradients: 10
 max_edge_gradients: 10
 
-aggregation_method: marginal median # mean, marginal_median 
+aggregation_method: mean # mean, marginal_median 
 
 # Byzantine types: no_byz, gaussian_attack, bitflip_attack, signflip_attack (See byzantine.py)   
 byzantine_type_cloud: no_byz
