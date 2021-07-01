@@ -20,7 +20,7 @@ def bitflip_attack(v, f, grad_example=None):
 
 # sign filpping failure
 def signflip_attack(v, f, grad_example):
-    MAGNITUDE = 1 # number of times the faulty layer is multipled by
+    MAGNITUDE = 2 # number of times the faulty layer is multipled by
     for i in random.sample(range(len(v)), f):
         idx = 0
         for j, param in enumerate(grad_example):
