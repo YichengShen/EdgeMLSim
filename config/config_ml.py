@@ -39,7 +39,7 @@ def aggre(gradients_to_aggregate, byz=byzantine.no_byz):
     aggregated_gradients = None
     if AGGREGATION_METHOD == "mean":
         aggregated_gradients = nd.mean(nd.concat(*param_list, dim=1), axis=-1)
-    elif AGGREGATION_METHOD == "marginal median":
+    elif AGGREGATION_METHOD == "marginal_median":
         # Sort param_list
         sorted_array = nd.sort(nd.concat(*param_list, dim=1), axis=-1)
         # Odd number of columns
