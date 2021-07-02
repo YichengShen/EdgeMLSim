@@ -5,7 +5,7 @@ sim_ip: 10.142.0.4
 cloud_ip: 10.142.0.5
 edge_ip: 10.142.0.6
 
-num_edges: 1
+num_edges: 3
 num_workers: 100
 
 sim_port_cloud: 10000
@@ -27,11 +27,11 @@ edge_ports:
 max_cloud_gradients: 10
 max_edge_gradients: 10
 
-aggregation_method: mean # mean, marginal_median
+aggregation_method: marginal_median # mean, marginal_median
 
 # Byzantine types: no_byz, gaussian_attack, bitflip_attack, signflip_attack (See byzantine.py)   
 byzantine_type_cloud: no_byz
-byzantine_type_edge: no_byz
+byzantine_type_edge: signflip_attack
 num_faulty_grad: 2
 
 batch_size: 100
