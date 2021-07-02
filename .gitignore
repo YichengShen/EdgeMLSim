@@ -128,3 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .DS_Store
+
+.idea
+
+# Collected results and model checkpoints
+collected_results
+model_checkpoints

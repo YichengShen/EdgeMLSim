@@ -7,11 +7,11 @@ import time
 from Msg import *
 from mxnet import nd
 import numpy as np
+import yaml
 
-# Global Var for ease of testing
-SIM_PORT_WORKER = 10002
-SIM_PORT_CLOUD = SIM_PORT_WORKER + 10000
-SIM_PORT_EDGE = SIM_PORT_CLOUD + 10000
+
+CFG = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
+
 
 def server_handle_connection(host, port, instance, persistent_connection, source_type=None, client_type=None):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -95,13 +95,16 @@ def client_build_connection(host, port, wait_initial_msg=True):
         print('Failed to create socket')
         sys.exit()
 
-    try:
-        remote_ip = socket.gethostbyname(host)
+    if CFG['local_run']:
+        try:
+            remote_ip = socket.gethostbyname(host)
 
-    except socket.gaierror:
-        # could not resolve
-        print('Hostname could not be resolved. Exiting')
-        sys.exit()
+        except socket.gaierror:
+            # could not resolve
+            print('Hostname could not be resolved. Exiting')
+            sys.exit()
+    else:
+        remote_ip = host
 
     # Connect to remote server
     try:

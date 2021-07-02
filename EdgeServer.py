@@ -30,24 +30,31 @@ class EdgeServer:
         self.connections = []
 
     def process(self):
-        HOST = socket.gethostname()
+        if self.cfg["local_run"]:
+            HOST_SIM = socket.gethostname()
+            HOST_CLOUD = HOST_SIM
+            HOST_EDGE = HOST_SIM
+        else:
+            HOST_SIM = self.cfg["sim_ip"]
+            HOST_CLOUD = self.cfg["cloud_ip"]
+            HOST_EDGE = self.cfg["edge_ip"]
 
         # Build connection with Simulator
-        simulator_conn = client_build_connection(HOST, self.cfg["sim_port_edge"], wait_initial_msg=False)
+        simulator_conn = client_build_connection(HOST_SIM, self.cfg["sim_port_edge"], wait_initial_msg=False)
         print('connection with simulator established')
 
         # Keep waiting for closing signal from Simulator
         threading.Thread(target=self.wait_to_close, args=(simulator_conn, )).start()
 
         # build_connection with cloud server
-        central_server_conn, msg = client_build_connection(HOST, self.cfg["cloud_port"])
+        central_server_conn, msg = client_build_connection(HOST_CLOUD, self.cfg["cloud_port"])
         self.parameter = msg.get_payload()
 
         # Keep waiting for new parameters from the central server
         threading.Thread(target=self.receive_parameter, args=(central_server_conn, )).start()
         
         # Start server and wait for workers to connect
-        threading.Thread(target=server_handle_connection, args=(HOST, self.port, self, True, self.type)).start()
+        threading.Thread(target=server_handle_connection, args=(HOST_EDGE, self.port, self, True, self.type)).start()
         print("\nEdge Server listening\n")
 
         # wait for at least num_of_workers workers to join
@@ -88,16 +95,14 @@ class EdgeServer:
         gradients_to_aggregate = self.accumulative_gradients[:self.cfg['max_edge_gradients']]
         self.accumulative_gradients = self.accumulative_gradients[self.cfg['max_edge_gradients']:]
 
-        # X is a 2d list of nd array
-        param_list = [nd.concat(*[xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients_to_aggregate]
-        mean_nd = nd.mean(nd.concat(*param_list, dim=1), axis=-1)
+        aggregated_nd = config_ml.aggre(gradients_to_aggregate, byz=config_ml.BYZ_TYPE_EDGE)
+
         grad_collect = []
         idx = 0
-
         for param in gradients_to_aggregate[0]:
             # mapping back to the collection of ndarray
             # append to list for uploading to cloud
-            grad_collect.append(mean_nd[idx:(idx+param.size)].reshape(param.shape))
+            grad_collect.append(aggregated_nd[idx:(idx+param.size)].reshape(param.shape))
             idx += param.size
         return grad_collect
 

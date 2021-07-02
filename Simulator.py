@@ -1,6 +1,9 @@
+import os
 import socket
 import threading
 import yaml
+import argparse
+import csv
 import random
 import math
 import time
@@ -9,11 +12,13 @@ import numpy as np
 from mxnet import nd, autograd, gluon
 from mxnet.gluon.data.vision import transforms
 from gluoncv.data import transforms as gcv_transforms
+import psutil
 
 from Msg import *
 from Utils import *
 from locationPicker_v3 import output_junctions
 import xml.etree.ElementTree as ET
+from config import config_ml
 
 
 class Simulator:
@@ -24,9 +29,10 @@ class Simulator:
         a. In each epoch, shuffle data
             - For each data batch in the epoch, send an edge server port number and the data to a worker
     """
-    def __init__(self):
+    def __init__(self, num_round):
         # Config
         self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
+        self.num_round = num_round
 
         # ML attributes
         self.epoch = 0
@@ -72,44 +78,47 @@ class Simulator:
         num_training_data = self.cfg['num_training_data']
         
         # Load Data
-        self.train_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('../data/mnist', train=True, transform=self.transform).take(num_training_data),
+        self.train_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('./data/mnist', train=True, transform=self.transform).take(num_training_data),
                                 batch_size, shuffle=True, last_batch='discard')
-        self.val_train_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('../data/mnist', train=True, transform=self.transform).take(self.cfg['num_val_loss']),
+        self.val_train_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('./data/mnist', train=True, transform=self.transform).take(self.cfg['num_val_loss']),
                                     batch_size, shuffle=False, last_batch='keep')
-        self.val_test_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('../data/mnist', train=False, transform=self.transform),
+        self.val_test_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('./data/mnist', train=False, transform=self.transform),
                                     batch_size, shuffle=False, last_batch='keep')
 
     def new_epoch(self):
         self.epoch += 1
         
         # Shuffle data before each new epoch
-        for i, (data, label) in enumerate(self.train_data):
+        for data, label in self.train_data:
             self.shuffled_data.append((data, label))
+
+        # Print network stats
+        # print(psutil.net_io_counters())
 
     def get_model(self):
         send_message(self.cloud_conn, InstanceType.SIMULATOR, PayloadType.REQUEST, b'ask for model')
         model_msg = wait_for_message(self.cloud_conn)
         return model_msg.get_payload()
 
-    def get_accu_loss(self):
-        model = self.get_model()
+    def get_accu_loss(self, model):
         # Calculate accuracy on testing data
-        for i, (data, label) in enumerate(self.val_test_data):
+        for data, label in self.val_test_data:
             outputs = model(data)
             self.epoch_accuracy.update(label, outputs)
         # Calculate loss (cross entropy) on training data
-        for i, (data, label) in enumerate(self.val_train_data):
+        for data, label in self.val_train_data:
             outputs = model(data)
             self.epoch_loss.update(label, nd.softmax(outputs))
-
 
     def print_accu_loss(self):
         self.epoch_accuracy.reset()
         self.epoch_loss.reset()
         print("finding accu and loss ...")
 
+        model = self.get_model()
+
         # Calculate accuracy and loss
-        self.get_accu_loss()
+        self.get_accu_loss(model)
 
         _, accu = self.epoch_accuracy.get()
         _, loss = self.epoch_loss.get()
@@ -118,6 +127,26 @@ class Simulator:
                                                                                     loss,
                                                                                     accu,
                                                                                     self.total_time))
+        self.save(model, self.epoch, accu, loss, self.total_time)
+    
+    def save(self, model, epoch, accu, loss, time):
+        # Save model checkpoints
+        if self.cfg['save_model_checkpoints']:
+            if not os.path.exists('model_checkpoints'):
+                os.makedirs('model_checkpoints')
+            checkpoint_file_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-Epoch' + str(epoch) + '-' + str(self.num_round) + '.params'
+            checkpoint_path = os.path.join('model_checkpoints', checkpoint_file_name)
+            model.save_parameters(checkpoint_path)
+
+        # Save accu, loss, etc
+        if self.cfg['save_results']:
+            if not os.path.exists('collected_results'):
+                os.makedirs('collected_results')
+            dir_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-' + str(self.num_round) + '.csv'
+            p = os.path.join('collected_results', dir_name)
+            with open(p, mode='a') as f:
+                writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                writer.writerow([epoch, accu, loss, time])
 
     def wait_for_free_worker_id(self, worker_conn, id):
         # while not self.terminated:
@@ -158,7 +187,10 @@ class Simulator:
             loop through sumo file
         """
 
-        HOST = socket.gethostname()
+        if self.cfg["local_run"]:
+            HOST = socket.gethostname()
+        else:
+            HOST = self.cfg["sim_ip"]
 
         # Simulator listens for Cloud
         threading.Thread(target=server_handle_connection, 
@@ -233,8 +265,8 @@ class Simulator:
                             self.pause_clock = True
                             print('------------------start pause-----------------------')
                             if self.epoch > 0:
-                                if self.epoch <= 10 or self.epoch % 10 == 0:
-                                    self.print_accu_loss()
+                                # if self.epoch <= 10 or self.epoch % 10 == 0:
+                                self.print_accu_loss()
                             self.new_epoch()
                             self.pause_clock = False
                             print('--------------------end pause-----------------------')
@@ -282,6 +314,17 @@ class Simulator:
         self.terminated = True
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train a model for image classification.')
+    parser.add_argument('--num-round', type=int, default=0,
+                        help='number of round.')
+    opt = parser.parse_args()
+    return opt
+
+
 if __name__ == "__main__":
-    simulator = Simulator()
+    opt = parse_args()
+    num_round = opt.num_round
+
+    simulator = Simulator(num_round)
     simulator.process()
