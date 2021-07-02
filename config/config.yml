@@ -47,4 +47,7 @@ NET_FILE: './osm_boston_common/osm.net.xml'
 FCD_FILE: './osm_boston_common/osm_fcd.xml'
 v2rsu: 100
 
+save_model_checkpoints: false
+save_results: true
+
 dataset: 'mnist'

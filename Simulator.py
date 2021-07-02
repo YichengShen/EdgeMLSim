@@ -131,20 +131,22 @@ class Simulator:
     
     def save(self, model, epoch, accu, loss, time):
         # Save model checkpoints
-        if not os.path.exists('model_checkpoints'):
-            os.makedirs('model_checkpoints')
-        checkpoint_file_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-Epoch' + str(epoch) + '-' + str(self.num_round) + '.params'
-        checkpoint_path = os.path.join('model_checkpoints', checkpoint_file_name)
-        model.save_parameters(checkpoint_path)
+        if self.cfg['save_model_checkpoints']:
+            if not os.path.exists('model_checkpoints'):
+                os.makedirs('model_checkpoints')
+            checkpoint_file_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-Epoch' + str(epoch) + '-' + str(self.num_round) + '.params'
+            checkpoint_path = os.path.join('model_checkpoints', checkpoint_file_name)
+            model.save_parameters(checkpoint_path)
 
         # Save accu, loss, etc
-        if not os.path.exists('collected_results'):
-            os.makedirs('collected_results')
-        dir_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-' + str(self.num_round) + '.csv'
-        p = os.path.join('collected_results', dir_name)
-        with open(p, mode='a') as f:
-            writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            writer.writerow([epoch, accu, loss, time])
+        if self.cfg['save_results']:
+            if not os.path.exists('collected_results'):
+                os.makedirs('collected_results')
+            dir_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-' + str(self.num_round) + '.csv'
+            p = os.path.join('collected_results', dir_name)
+            with open(p, mode='a') as f:
+                writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                writer.writerow([epoch, accu, loss, time])
 
     def wait_for_free_worker_id(self, worker_conn, id):
         # while not self.terminated:
