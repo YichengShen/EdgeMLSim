@@ -4,6 +4,8 @@ Anran Du, Yicheng Shen, Zhangyang Wei, Lewis Tseng
 
 The 40th International Symposium on Reliable Distributed Systems (SRDS) poster 2021
 
+Paper: [link](srds_paper/SRDS21_EdgeMLSim_poster.pdf)
+
 ## How to run on multiple machines
 
 1. Download and install
