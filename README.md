@@ -1,12 +1,16 @@
-# ByzML
+# EdgeMLSim: A Framework for Modeling and Simulation of Edge Computing and Evaluation of Fault-tolerant Machine Learning
+
+Anran Du, Yicheng Shen, Zhangyang Wei, Lewis Tseng
+
+The 40th International Symposium on Reliable Distributed Systems (SRDS) poster 2021
 
 ## How to run on multiple machines
 
 1. Download and install
 
     ```
-    git clone https://github.com/YichengShen/ByzML.git
-    cd ByzML
+    git clone https://github.com/YichengShen/EdgeMLSim.git
+    cd EdgeMLSim
     git checkout [branchname]
     . install.sh
     ```
