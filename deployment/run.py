@@ -25,10 +25,10 @@ ipam_config = docker.types.IPAMConfig(pool_configs=[ipam_pool])
 overlay_net = client.networks.create("overlay_net", driver="overlay", ipam=ipam_config, attachable=True)
 
 # Run the Simulator container
-simulator = client.containers.create(image_id, name="simulator", detach=True, tty=True)
+simulator = client.containers.create(image_id, name="simulator", command="python3 Simulator.py", detach=True, tty=True)
 overlay_net.connect(simulator, ipv4_address=ip_config['ip_sim'])
 simulator.start()
-simulator.exec_run("python3 Simulator.py", detach=True, tty=True)
+# simulator.exec_run("python3 Simulator.py", detach=True, tty=True)
 
 # my_net_info = client.api.inspect_network(my_net.id)
 # client.api.services()
