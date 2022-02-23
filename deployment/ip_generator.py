@@ -39,9 +39,9 @@ def generate_ip_config(num_edge):
         return None
 
     ip_simulator = IP_SUBNET + "2"
-    ip_cloud = IP_SUBNET + "3"
+    ip_cloud = IP_SUBNET + "4"
     ip_edges = []
-    for i in range(4, num_ip+2):
+    for i in range(5, num_ip+3):
         ip_edges.append(IP_SUBNET+str(i))
 
     ip_config = {

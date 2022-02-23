@@ -39,7 +39,7 @@ class CloudServer:
             HOST_CLOUD = self.ip_cfg["ip_cloud"]
 
         # Build connection with Simulator
-        simulator_conn = client_build_connection(HOST_SIM, self.cfg["port_sim_cloud"], wait_initial_msg=False)
+        simulator_conn = client_build_connection(HOST_SIM, self.ip_cfg["port_sim_cloud"], wait_initial_msg=False)
         print('connection with simulator established')
 
         # Run server

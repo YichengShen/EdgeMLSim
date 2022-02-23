@@ -6,6 +6,7 @@ Before running this file, you need to
 
 import docker
 import yaml
+from time import sleep
 from ip_generator import generate_ip_config
 
 
@@ -28,6 +29,8 @@ overlay_net = client.networks.create("overlay_net", driver="overlay", ipam=ipam_
 simulator = client.containers.create(image_id, name="simulator", command="python3 Simulator.py", detach=True, tty=True)
 overlay_net.connect(simulator, ipv4_address=ip_config['ip_sim'])
 simulator.start()
+
+sleep(10)
 
 # Run the Cloud Server container
 cloud_server = client.containers.create(image_id, name="cloud", command="python3 CloudServer.py", detach=True, tty=True)
