@@ -1,7 +1,3 @@
-git clone https://github.com/YichengShen/EdgeMLSim.git
-cd EdgeMLSim
-git checkout docker_version
-
 sudo apt-get update
 sudo apt-get install \
     ca-certificates \
@@ -18,9 +14,9 @@ $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev
 sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
+sudo apt install -y python3-pip
+pip3 install docker
+
 sudo groupadd docker
 sudo usermod -aG docker $USER
 newgrp docker
-
-sudo apt install -y python3-pip
-pip3 install docker
