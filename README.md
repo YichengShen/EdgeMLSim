@@ -40,7 +40,20 @@
 
 5. To run Docker without root privileges. See [here](https://docs.docker.com/engine/install/linux-postinstall/).
 
-6. Create a Docker swarm on the manager VM. Then make other worker VMs join the swarm.
+   ```
+   sudo groupadd docker
+   sudo usermod -aG docker $USER
+   newgrp docker
+   ```
+
+6. Install Docker Python SDK.
+
+   ```
+   sudo apt install -y python3-pip
+   pip3 install docker
+   ```
+
+7. Create a Docker swarm on the manager VM. Then make other worker VMs join the swarm.
 
    - On manager VM
 
@@ -54,25 +67,25 @@
    sudo docker swarm join --token [TOKEN] [IP]:2377
    ```
 
-7. Specify how many edge servers and workers to use in `config/config.yml`. Then generate a IP config.
+8. Specify how many edge servers and workers to use in `config/config.yml`. Then generate a IP config.
 
    ```
    python3 deployment/ip_generator.py
    ```
 
-8. Build a Docker image from the Dockerfile
+9. Build a Docker image from the Dockerfile
 
-   ```
-   sudo docker build .
-   ```
+```
+sudo docker build .
+```
 
-9. Create an Overlay network.
+11. Create an Overlay network.
 
-   ```
-   sudo docker network create --driver=overlay --attachable --subnet 192.168.0.0/24 overlay-net
-   ```
+```
+sudo docker network create --driver=overlay --attachable --subnet 192.168.0.0/24 overlay-net
+```
 
-10. Run Simulator container
+12. Run Simulator container
     ```
     sudo docker run --name simulator --network overlay-net --ip 192.168.0.2 -d -t 48775fa03d6b
     ```
