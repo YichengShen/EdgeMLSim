@@ -21,7 +21,7 @@ image = client.images.build(path=".")
 image_id = image[0].short_id[-10:]
 
 # Create overlay network
-ipam_pool = docker.types.IPAMPool(subnet='192.168.0.0/24')
+ipam_pool = docker.types.IPAMPool(subnet='192.168.0.0/24', gateway='192.168.0.1')
 ipam_config = docker.types.IPAMConfig(pool_configs=[ipam_pool])
 overlay_net = client.networks.create("overlay_net", driver="overlay", ipam=ipam_config, attachable=True)
 
