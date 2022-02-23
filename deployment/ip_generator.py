@@ -6,7 +6,7 @@ cfg = yaml.load(open('./config/config.yml', 'r'), Loader=yaml.FullLoader)
 def enough_ip_in_subnet(num_ip):
     """
     Validates the total number of IP addresses needed.
-    Assumes CIDR is /24. The number of usable IP addresses is 254. Returns True if num_ip is less than 254.
+    Assumes CIDR is /24. The number of usable IP addresses is 253 (from 2 to 254). Returns True if num_ip is less than 254.
     Note: Docker Overlay network has a size limit of up to /24. See https://docs.docker.com/engine/swarm/networking/
 
     Arguments:
@@ -15,7 +15,7 @@ def enough_ip_in_subnet(num_ip):
     Returns:
         Boolean
     """
-    return num_ip <= 254
+    return num_ip <= 253
 
 def generate_ip_config(num_edge):
     """
@@ -33,21 +33,27 @@ def generate_ip_config(num_edge):
 
     # Assumes only one simulator and one cloud server
     num_ip = num_edge + 1 + 1
-    ip_simulator = IP_SUBNET + "1"
-    ip_cloud = IP_SUBNET + "2"
+
+    if not enough_ip_in_subnet(num_ip):
+        print("Cannot use more than 253 nodes")
+        return None
+
+    ip_simulator = IP_SUBNET + "2"
+    ip_cloud = IP_SUBNET + "3"
     ip_edges = []
-    for i in range(3, num_ip+1):
+    for i in range(4, num_ip+2):
         ip_edges.append(IP_SUBNET+str(i))
 
     ip_config = {
-        'sim_ip' : ip_simulator,
-        'cloud_ip': ip_cloud,
-        'edges_ip': ip_edges
+        'ip_sim' : ip_simulator,
+        'ip_cloud': ip_cloud,
+        'ip_edges': ip_edges,
+        'port_sim_cloud': 10000,
+        'port_sim_edge': 10001,
+        'port_sim_worker': 10002
         }
 
     with open('deployment/ip_config.yml', 'w') as file:
         yaml.dump(ip_config, file)
 
     return ip_config
-
-generate_ip_config(2)

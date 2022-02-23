@@ -32,6 +32,7 @@ class Simulator:
     def __init__(self, num_round):
         # Config
         self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
+        self.ip_cfg = yaml.load(open('deployment/ip_config.yml', 'r'), Loader=yaml.FullLoader)
         self.num_round = num_round
 
         # ML attributes
@@ -190,19 +191,19 @@ class Simulator:
         if self.cfg["local_run"]:
             HOST = socket.gethostname()
         else:
-            HOST = self.cfg["sim_ip"]
+            HOST = self.ip_cfg["ip_sim"]
 
         # Simulator listens for Cloud
         threading.Thread(target=server_handle_connection, 
-                        args=(HOST, self.cfg["sim_port_cloud"], self, True, self.type, InstanceType.CLOUD_SERVER)).start()
+                        args=(HOST, self.ip_cfg["port_sim_cloud"], self, True, self.type, InstanceType.CLOUD_SERVER)).start()
 
         # Simulator listens for Edge Servers
         threading.Thread(target=server_handle_connection, 
-                        args=(HOST, self.cfg["sim_port_edge"], self, True, self.type, InstanceType.EDGE_SERVER)).start()
+                        args=(HOST, self.ip_cfg["port_sim_edge"], self, True, self.type, InstanceType.EDGE_SERVER)).start()
 
         # Simulator starts to listen for Workers
         threading.Thread(target=server_handle_connection, 
-                        args=(HOST, self.cfg["sim_port_worker"], self, True, self.type, InstanceType.WORKER)).start()
+                        args=(HOST, self.ip_cfg["port_sim_worker"], self, True, self.type, InstanceType.WORKER)).start()
 
         print("\nSimulator listening\n")
 
