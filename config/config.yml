@@ -4,10 +4,6 @@ python_version: python3.8
 num_edges: 1
 num_workers: 50
 
-sim_port_cloud: 10000
-sim_port_edge: 10001
-sim_port_worker: 10002
-cloud_port: 50000
 edge_ports:
   - 60000
   - 60001

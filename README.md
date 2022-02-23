@@ -75,17 +75,17 @@
 
 9. Build a Docker image from the Dockerfile
 
-```
-sudo docker build .
-```
+   ```
+   sudo docker build .
+   ```
 
-11. Create an Overlay network.
+10. Create an Overlay network.
 
 ```
 sudo docker network create --driver=overlay --attachable --subnet 192.168.0.0/24 overlay-net
 ```
 
-12. Run Simulator container
+11. Run Simulator container
     ```
     sudo docker run --name simulator --network overlay-net --ip 192.168.0.2 -d -t 48775fa03d6b
     ```

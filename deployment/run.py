@@ -6,7 +6,7 @@ Before running this file, you need to
 
 import docker
 import yaml
-from deployment.ip_generator import generate_ip_config
+from ip_generator import generate_ip_config
 
 
 # Generate a config file containing IP addresses of nodes
@@ -28,7 +28,11 @@ overlay_net = client.networks.create("overlay_net", driver="overlay", ipam=ipam_
 simulator = client.containers.create(image_id, name="simulator", command="python3 Simulator.py", detach=True, tty=True)
 overlay_net.connect(simulator, ipv4_address=ip_config['ip_sim'])
 simulator.start()
-# simulator.exec_run("python3 Simulator.py", detach=True, tty=True)
+
+# Run the Cloud Server container
+cloud_server = client.containers.create(image_id, name="cloud", command="python3 CloudServer.py", detach=True, tty=True)
+overlay_net.connect(cloud_server, ipv4_address=ip_config['ip_cloud'])
+cloud_server.start()
 
 # my_net_info = client.api.inspect_network(my_net.id)
 # client.api.services()

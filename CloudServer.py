@@ -12,6 +12,7 @@ class CloudServer:
     def __init__(self):
         # Config
         self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
+        self.ip_cfg = yaml.load(open('deployment/ip_config.yml', 'r'), Loader=yaml.FullLoader)
 
         # ML attributes
         # Initialize MXNET model from imports
@@ -34,15 +35,15 @@ class CloudServer:
             HOST_SIM = socket.gethostname()
             HOST_CLOUD = HOST_SIM
         else:
-            HOST_SIM = self.cfg["sim_ip"]
-            HOST_CLOUD = self.cfg["cloud_ip"]
+            HOST_SIM = self.ip_cfg["ip_sim"]
+            HOST_CLOUD = self.ip_cfg["ip_cloud"]
 
         # Build connection with Simulator
-        simulator_conn = client_build_connection(HOST_SIM, self.cfg["sim_port_cloud"], wait_initial_msg=False)
+        simulator_conn = client_build_connection(HOST_SIM, self.cfg["port_sim_cloud"], wait_initial_msg=False)
         print('connection with simulator established')
 
         # Run server
-        connection_thread = threading.Thread(target=server_handle_connection, args=(HOST_CLOUD, self.cfg["cloud_port"], self, True))
+        connection_thread = threading.Thread(target=server_handle_connection, args=(HOST_CLOUD, self.ip_cfg["port_cloud"], self, True))
         connection_thread.start()
         print("\nCloud Server listening\n")
 
