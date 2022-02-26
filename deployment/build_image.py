@@ -9,7 +9,8 @@ def build_image(client):
     print("EdgeMLSim image built")
 
     # Run a local registry for sharing the image
-    client.api.create_container("registry:2",
+    registry_image = client.images.pull("registry:2")
+    client.api.create_container(registry_image,
                                 name="registry",
                                 detach=True,
                                 ports=[5000],
