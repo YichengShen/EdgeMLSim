@@ -14,7 +14,7 @@ def build_image(client):
                           detach=True,
                           ports=[5000],
                           restart_policy={"Name": "always"},
-                          host_config=docker.utils.create_host_config(port_bindings={
+                          host_config=client.api.create_host_config(port_bindings={
                               5000: 5000,
                           }))
     print("Local registry created")
