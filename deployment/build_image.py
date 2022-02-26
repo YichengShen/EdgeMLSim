@@ -13,7 +13,7 @@ def build_image(client):
                                 name="registry",
                                 detach=True,
                                 ports=[5000],
-                                restart_policy={"Name": "always"},
+                                # restart_policy={"Name": "always"},
                                 host_config=client.api.create_host_config(port_bindings={
                                     5000: 5000,
                                 }))
