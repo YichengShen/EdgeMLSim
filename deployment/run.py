@@ -1,5 +1,5 @@
 """
-Before running this file, you need to 
+Before running this file, you need to
    1) Create a Docker swarm on your manager VM ---> `sudo docker swarm init`
    2) Let the worker VMs join the swarm
 """
@@ -19,7 +19,7 @@ print("New IP config generated")
 
 client = docker.from_env()
 
-image_id, image_tag = build_image(client)
+image_tag = build_image(client)
 
 # Create overlay network
 ipam_pool = docker.types.IPAMPool(
@@ -29,8 +29,6 @@ overlay_net = client.networks.create(
     "overlay_net", driver="overlay", ipam=ipam_config, attachable=True)
 
 # Run the Simulator container
-# simulator = client.containers.create(
-#     image_id, name="simulator", command="python3 Simulator.py", detach=True, tty=True)
 simulator = client.containers.create(
     image_tag, name="simulator", command="python3 Simulator.py", detach=True, tty=True)
 overlay_net.connect(simulator, ipv4_address=ip_config['ip_sim'])
@@ -40,7 +38,7 @@ sleep(10)
 
 # Run the Cloud Server container
 cloud_server = client.containers.create(
-    image_id, name="cloud", command="python3 CloudServer.py", detach=True, tty=True)
+    image_tag, name="cloud", command="python3 CloudServer.py", detach=True, tty=True)
 overlay_net.connect(cloud_server, ipv4_address=ip_config['ip_cloud'])
 cloud_server.start()
 
@@ -49,7 +47,7 @@ sleep(10)
 # Run Edge Server containers
 edge_servers = []
 for idx in range(cfg['num_edges']):
-    edge_server = client.containers.create(image_id, name="edge{idx}".format(
+    edge_server = client.containers.create(image_tag, name="edge{idx}".format(
         idx=idx), command="python3 EdgeServer.py --ip_index {idx}".format(idx=idx), detach=True, tty=True)
     overlay_net.connect(edge_server, ipv4_address=ip_config['ip_edges'][idx])
     edge_server.start()
@@ -57,12 +55,13 @@ for idx in range(cfg['num_edges']):
 
 sleep(10)
 
-# # Run Worker as services
-# workers = []
-# for idx in range(cfg['num_workers']):
-#     client.services.create()
+# Run Worker as services
+workers = []
+for idx in range(cfg['num_workers']):
+    worker = client.services.create(image_tag,
+                                    command="python3 Worker.py",
+                                    name="worker{idx}".format(idx=idx),
+                                    networks=[overlay_net.id])
+    workers.append(worker)
 
-# my_net_info = client.api.inspect_network(my_net.id)
-# client.api.services()
-
-# sim_ip = client.api.inspect_container("sim")["NetworkSettings"]["Networks"][str(my_net.name)]["IPAMConfig"]["IPv4Address"]
+print("All components running")

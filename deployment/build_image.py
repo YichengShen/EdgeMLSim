@@ -6,7 +6,6 @@ def build_image(client):
     # Build docker image
     image = client.images.build(path=".", tag="edgemlsim:latest")
     image_obj = image[0]
-    image_id = image_obj.short_id[-10:]
     print("EdgeMLSim image built")
 
     # Run a local registry for sharing the image
@@ -38,4 +37,4 @@ def build_image(client):
         print(line)
     print("Image pushed to local registry\n")
 
-    return image_id, image_tag
+    return image_tag
