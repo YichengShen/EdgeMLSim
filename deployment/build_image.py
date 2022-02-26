@@ -10,14 +10,15 @@ def build_image(client):
 
     # Run a local registry for sharing the image
     registry_image = client.images.pull("registry:2")
-    client.api.create_container(registry_image,
-                                name="registry",
-                                detach=True,
-                                ports=[5000],
-                                # restart_policy={"Name": "always"},
-                                host_config=client.api.create_host_config(port_bindings={
-                                    5000: 5000,
-                                }))
+    registry_container = client.api.create_container(registry_image,
+                                                     name="registry",
+                                                     detach=True,
+                                                     ports=[5000],
+                                                     # restart_policy={"Name": "always"},
+                                                     host_config=client.api.create_host_config(port_bindings={
+                                                         5000: 5000
+                                                     }))
+    registry_container.start()
     print("Local registry created")
 
     # Push image to local registry
