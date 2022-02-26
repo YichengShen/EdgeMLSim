@@ -12,10 +12,11 @@ class Worker:
     def __init__(self):
         # Config
         self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
+        self.ip_cfg = yaml.load(open('deployment/ip_config.yml', 'r'), Loader=yaml.FullLoader)
 
         # TCP attributes
         self.worker_id = None
-        self.edge_port = None
+        self.edge_ip = None
         self.edge_conns = {}
         self.terminated = False
         self.cv = threading.Condition()
@@ -34,19 +35,18 @@ class Worker:
             host_sim = socket.gethostname()
             host_edge = socket.gethostname()
         else:
-            host_sim = self.cfg["sim_ip"]
-            host_edge = self.cfg["edge_ip"]
+            host_sim = self.ip_cfg['ip_sim']
 
         # Build connection with simulator
-        simulator_conn, id_msg = client_build_connection(host_sim, self.cfg["sim_port_worker"])
+        simulator_conn, id_msg = client_build_connection(host_sim, self.ip_cfg['port_sim_worker'])
         # print('connection with simulator established')
         self.worker_id = id_msg.get_payload()
         
         # Build connection with Edge Servers
         for idx in range(self.cfg["num_edges"]):
-            edge_port = self.cfg["edge_ports"][idx]
-            edge_server_conn = client_build_connection(host_edge, edge_port, wait_initial_msg=False)
-            self.edge_conns[edge_port] = edge_server_conn
+            edge_ip = self.ip_cfg['ip_edges'][idx]
+            edge_server_conn = client_build_connection(edge_ip, self.ip_cfg['port_edge'], wait_initial_msg=False)
+            self.edge_conns[edge_ip] = edge_server_conn
 
         threading.Thread(target=self.receive_simulator_info, args=(simulator_conn, )).start()
 
@@ -54,7 +54,7 @@ class Worker:
             
             # Send msg to Edge Server to ask for parameters
             with self.cv:
-                self.cv.wait_for(lambda: not self.in_map or (self.edge_port is not None and self.data is not None) or self.terminated)
+                self.cv.wait_for(lambda: not self.in_map or (self.edge_ip is not None and self.data is not None) or self.terminated)
                 # print('notified_start')
 
                 if self.terminated:
@@ -64,7 +64,7 @@ class Worker:
                     self.notify_finish(simulator_conn)
                     continue
                 
-                edge_conn = self.edge_conns[self.edge_port]
+                edge_conn = self.edge_conns[self.edge_ip]
                 send_message(edge_conn, InstanceType.WORKER, PayloadType.REQUEST, b'request for parameter')
 
 
@@ -77,14 +77,14 @@ class Worker:
 
             # Send gradients to edge servers
             with self.cv:
-                self.cv.wait_for(lambda: self.edge_port is not None or not self.in_map)
+                self.cv.wait_for(lambda: self.edge_ip is not None or not self.in_map)
                 # print("notified_send")
 
                 if not self.in_map:
                     self.notify_finish(simulator_conn)
                     continue
                 
-                send_message(self.edge_conns[self.edge_port], InstanceType.WORKER, PayloadType.GRADIENT, gradients)
+                send_message(self.edge_conns[self.edge_ip], InstanceType.WORKER, PayloadType.GRADIENT, gradients)
 
             # Finish
             self.notify_finish(simulator_conn)
@@ -103,8 +103,8 @@ class Worker:
                     self.cv.notify_all()
                 break
 
-            _edge_port, _data, self.in_map = data_msg.get_payload()
-            # print('received', _edge_port, _data==None, self.data==None)
+            _edge_ip, _data, self.in_map = data_msg.get_payload()
+            # print('received', _edge_ip, _data==None, self.data==None)
             # Only change data for the first messag
             if self.data is None:
                 self.data = _data
@@ -113,7 +113,7 @@ class Worker:
             #     print('not in map')
 
             with self.cv:
-                self.edge_port = _edge_port
+                self.edge_ip = _edge_ip
                 self.cv.notify_all()
 
             time.sleep(0.01)
@@ -146,7 +146,7 @@ class Worker:
     def notify_finish(self, simulator_conn):
         # Send msg to Simulator indicating task finished (now ready for new task)
         self.data = None
-        self.edge_port = None
+        self.edge_ip = None
         self.in_map = True
         send_message(simulator_conn, InstanceType.WORKER, PayloadType.ID, self.worker_id)
 

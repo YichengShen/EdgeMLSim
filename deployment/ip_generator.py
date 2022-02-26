@@ -53,7 +53,8 @@ def generate_ip_config(num_edge):
         'port_sim_cloud': 10000,
         'port_sim_edge': 10001,
         'port_sim_worker': 10002,
-        'port_cloud' : 50000
+        'port_cloud' : 50000,
+        'port_edge' : 60000
         }
 
     with open('deployment/ip_config.yml', 'w') as file:

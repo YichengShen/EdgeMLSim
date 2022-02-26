@@ -37,6 +37,19 @@ cloud_server = client.containers.create(image_id, name="cloud", command="python3
 overlay_net.connect(cloud_server, ipv4_address=ip_config['ip_cloud'])
 cloud_server.start()
 
+sleep(10)
+
+# Run Edge Server containers
+edge_servers = []
+for idx in range(cfg['num_edges']):
+   edge_server = client.containers.create(image_id, name="edge{idx}".format(idx=idx), command="python3 EdgeServer.py --ip_index {idx}".format(idx=idx), detach=True, tty=True)
+   overlay_net.connect(edge_server, ipv4_address=ip_config['ip_edges'][idx])
+   edge_server.start()
+   edge_servers.append(edge_server)
+
+# sleep(10)
+
+
 # my_net_info = client.api.inspect_network(my_net.id)
 # client.api.services()
 

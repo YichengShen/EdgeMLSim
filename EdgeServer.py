@@ -13,9 +13,10 @@ from config import config_ml
 
 
 class EdgeServer:
-    def __init__(self, port_idx):
+    def __init__(self, ip_idx):
         # Config
         self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
+        self.ip_cfg = yaml.load(open('deployment/ip_config.yml', 'r'), Loader=yaml.FullLoader)
 
         # ML Attributes
         self.parameter = None
@@ -24,7 +25,8 @@ class EdgeServer:
 
         # TCP Attributes
         self.type = InstanceType.EDGE_SERVER
-        self.port = self.cfg["edge_ports"][port_idx]
+        self.ip = self.ip_cfg["ip_edges"][ip_idx]
+        self.port = self.ip_cfg["port_edge"]
         self.cv = threading.Condition()
         self.terminated = False
         self.connections = []
@@ -35,19 +37,19 @@ class EdgeServer:
             HOST_CLOUD = HOST_SIM
             HOST_EDGE = HOST_SIM
         else:
-            HOST_SIM = self.cfg["sim_ip"]
-            HOST_CLOUD = self.cfg["cloud_ip"]
-            HOST_EDGE = self.cfg["edge_ip"]
+            HOST_SIM = self.ip_cfg["ip_sim"]
+            HOST_CLOUD = self.ip_cfg["ip_cloud"]
+            HOST_EDGE = self.ip
 
         # Build connection with Simulator
-        simulator_conn = client_build_connection(HOST_SIM, self.cfg["sim_port_edge"], wait_initial_msg=False)
+        simulator_conn = client_build_connection(HOST_SIM, self.ip_cfg["port_sim_edge"], wait_initial_msg=False)
         print('connection with simulator established')
 
         # Keep waiting for closing signal from Simulator
         threading.Thread(target=self.wait_to_close, args=(simulator_conn, )).start()
 
         # build_connection with cloud server
-        central_server_conn, msg = client_build_connection(HOST_CLOUD, self.cfg["cloud_port"])
+        central_server_conn, msg = client_build_connection(HOST_CLOUD, self.ip_cfg["port_cloud"])
         self.parameter = msg.get_payload()
 
         # Keep waiting for new parameters from the central server
@@ -118,8 +120,8 @@ class EdgeServer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port_index", help="port index in config", type=int)
+    parser.add_argument("--ip_index", help="IP index in the generated IP config", type=int)
     args = parser.parse_args()
 
-    edge_server = EdgeServer(args.port_index)
+    edge_server = EdgeServer(args.ip_index)
     edge_server.process()

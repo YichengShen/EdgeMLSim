@@ -59,7 +59,7 @@ class Simulator:
 
         # Simulation (traffic) attributes
         self.vehicle_dict = {}
-        self.edge_locations = {self.cfg['edge_ports'][i]: coordinates for i, coordinates in enumerate(output_junctions)}
+        self.edge_locations = {self.ip_cfg['ip_edges'][i]: coordinates for i, coordinates in enumerate(output_junctions)}
         self.sumo_root = None
         self.timestep = None
         # Clock attributes
@@ -155,15 +155,15 @@ class Simulator:
         self.worker_id_free.add(id_msg.get_payload())
         self.vehicle_dict[id]['training'] = False
 
-    def get_closest_edge_server_port(self, vehicle_x, vehicle_y):
+    def get_closest_edge_server_ip(self, vehicle_x, vehicle_y):
         shortest_distance = 99999999 # placeholder (a random large number)
-        closest_edge_server_port = None
-        for port, (x, y) in self.edge_locations.items():
+        closest_edge_server_ip = None
+        for ip, (x, y) in self.edge_locations.items():
             distance = math.sqrt((x - vehicle_x) ** 2 + (y - vehicle_y) ** 2)
             if distance <= self.cfg['v2rsu'] and distance < shortest_distance:
                 shortest_distance = distance
-                closest_edge_server_port = port
-        return closest_edge_server_port
+                closest_edge_server_ip = ip
+        return closest_edge_server_ip
 
     # Check if the vehicle is still in the map in the next timestep
     def in_map(self, timestep, v_id):
@@ -242,20 +242,20 @@ class Simulator:
                 # If vehicle not yet stored in vehicle_dict
                 v_id = vehicle.attrib['id']
                 if v_id not in self.vehicle_dict:
-                    self.vehicle_dict[v_id] = {'training': False, 'connection': None, 'last_port': None}
+                    self.vehicle_dict[v_id] = {'training': False, 'connection': None, 'last_ip': None}
                     
-                edge_port = self.get_closest_edge_server_port(float(vehicle.attrib['x']), float(vehicle.attrib['y']))
+                edge_ip = self.get_closest_edge_server_ip(float(vehicle.attrib['x']), float(vehicle.attrib['y']))
                 data = None
 
                 
                 # Vehicle does not have training task currently
                 if not self.vehicle_dict[v_id]['training']:
                     self.vehicle_dict[v_id]['connection'] = None
-                    self.vehicle_dict[v_id]['last_port'] = None
+                    self.vehicle_dict[v_id]['last_ip'] = None
 
                     with self.lock:
                         # If no free worker, continue
-                        if not self.worker_id_free or edge_port is None:
+                        if not self.worker_id_free or edge_ip is None:
                             continue                  
                         # If free worker available
                         workerId = self.worker_id_free.pop()
@@ -283,18 +283,18 @@ class Simulator:
                 # in_map returns False when the vehicle is no longer in the map in the next timestep
                 in_map = self.in_map(timestep, v_id)
                 
-                # If vehicle has same port as last time and still in map, continue
-                if edge_port == self.vehicle_dict[v_id]['last_port'] and in_map:
+                # If vehicle has same edge server IP as last time and still in map, continue
+                if edge_ip == self.vehicle_dict[v_id]['last_ip'] and in_map:
                     continue
 
-                self.vehicle_dict[v_id]['last_port'] = edge_port
+                self.vehicle_dict[v_id]['last_ip'] = edge_ip
 
                 # Cases to send msg:
                 # 1. First time assigning task
-                # 2. Vehicle changes its port (this means leaving edge range or moving to a new edge server)
+                # 2. Vehicle changes its IP (this means leaving edge range or moving to a new edge server)
                 # 3. Vehilce leaves map
                 if self.vehicle_dict[v_id]['training']:
-                    send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, (edge_port, data, in_map))
+                    send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, (edge_ip, data, in_map))
 
         # Close the connections with workers
         for worker_conn in self.worker_conns:
