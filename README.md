@@ -89,3 +89,7 @@ sudo docker network create --driver=overlay --attachable --subnet 192.168.0.0/24
     ```
     sudo docker run --name simulator --network overlay-net --ip 192.168.0.2 -d -t 48775fa03d6b
     ```
+
+```
+docker service create --name worker0 --network overlay_net localhost:5000/my-image python3 Worker.py
+```

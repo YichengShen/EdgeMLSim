@@ -2,7 +2,7 @@ local_run: false
 python_version: python3.8
 
 num_edges: 1
-num_workers: 50
+num_workers: 5
 
 max_cloud_gradients: 10
 max_edge_gradients: 10
