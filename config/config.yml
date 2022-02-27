@@ -1,5 +1,4 @@
 local_run: false
-python_version: python3.8
 
 num_edges: 1
 num_workers: 5
