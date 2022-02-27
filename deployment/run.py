@@ -11,6 +11,26 @@ from ip_generator import generate_ip_config
 from build_image import build_image
 
 
+def create_overlay_net(client):
+    """
+    Creates an overlay network with subnet address of 192.168.0.0/24. EdgeMLSim components use IP in this subnet to build TCP connections.
+    """
+    # Remove previous overlay network if it exists
+    try:
+        previous_overlay = client.networks.get("overlay_net")
+    except docker.errors.NotFound as exc:
+        print(f"Exception: {exc.explanation}")
+    else:
+        previous_overlay.remove()
+    # Create overlay network
+    ipam_pool = docker.types.IPAMPool(
+        subnet='192.168.0.0/24', gateway='192.168.0.1')
+    ipam_config = docker.types.IPAMConfig(pool_configs=[ipam_pool])
+    overlay_net = client.networks.create(
+        "overlay_net", driver="overlay", ipam=ipam_config, attachable=True)
+    return overlay_net
+
+
 cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
 
 # Generate a config file containing IP addresses of nodes
@@ -21,12 +41,7 @@ client = docker.from_env()
 
 image_tag = build_image(client)
 
-# Create overlay network
-ipam_pool = docker.types.IPAMPool(
-    subnet='192.168.0.0/24', gateway='192.168.0.1')
-ipam_config = docker.types.IPAMConfig(pool_configs=[ipam_pool])
-overlay_net = client.networks.create(
-    "overlay_net", driver="overlay", ipam=ipam_config, attachable=True)
+overlay_net = create_overlay_net(client)
 
 # Run the Simulator container
 simulator = client.containers.create(
