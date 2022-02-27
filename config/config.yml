@@ -1,5 +1,3 @@
-local_run: false
-
 num_edges: 1
 num_workers: 5
 

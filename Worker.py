@@ -1,18 +1,18 @@
-import socket
 import threading
-from mxnet import nd, gluon, autograd, init
+from mxnet import autograd, init
 from Msg import *
 from Utils import *
 from config import config_ml
-import numpy as np
 import yaml
 
 
 class Worker:
     def __init__(self):
         # Config
-        self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
-        self.ip_cfg = yaml.load(open('deployment/ip_config.yml', 'r'), Loader=yaml.FullLoader)
+        self.cfg = yaml.load(open('config/config.yml', 'r'),
+                             Loader=yaml.FullLoader)
+        self.ip_cfg = yaml.load(
+            open('deployment/ip_config.yml', 'r'), Loader=yaml.FullLoader)
 
         # TCP attributes
         self.worker_id = None
@@ -20,7 +20,7 @@ class Worker:
         self.edge_conns = {}
         self.terminated = False
         self.cv = threading.Condition()
-        
+
         # Map attributes
         self.in_map = True
 
@@ -28,33 +28,30 @@ class Worker:
         self.model = config_ml.MODEL
         self.parameter = None
         self.data = None
-        
 
     def process(self):
-        if self.cfg["local_run"]:
-            host_sim = socket.gethostname()
-            host_edge = socket.gethostname()
-        else:
-            host_sim = self.ip_cfg['ip_sim']
-
         # Build connection with simulator
-        simulator_conn, id_msg = client_build_connection(host_sim, self.ip_cfg['port_sim_worker'])
+        simulator_conn, id_msg = client_build_connection(
+            self.ip_cfg['ip_sim'], self.ip_cfg['port_sim_worker'])
         # print('connection with simulator established')
         self.worker_id = id_msg.get_payload()
-        
+
         # Build connection with Edge Servers
         for idx in range(self.cfg["num_edges"]):
             edge_ip = self.ip_cfg['ip_edges'][idx]
-            edge_server_conn = client_build_connection(edge_ip, self.ip_cfg['port_edge'], wait_initial_msg=False)
+            edge_server_conn = client_build_connection(
+                edge_ip, self.ip_cfg['port_edge'], wait_initial_msg=False)
             self.edge_conns[edge_ip] = edge_server_conn
 
-        threading.Thread(target=self.receive_simulator_info, args=(simulator_conn, )).start()
+        threading.Thread(target=self.receive_simulator_info,
+                         args=(simulator_conn, )).start()
 
         while not self.terminated:
-            
+
             # Send msg to Edge Server to ask for parameters
             with self.cv:
-                self.cv.wait_for(lambda: not self.in_map or (self.edge_ip is not None and self.data is not None) or self.terminated)
+                self.cv.wait_for(lambda: not self.in_map or (
+                    self.edge_ip is not None and self.data is not None) or self.terminated)
                 # print('notified_start')
 
                 if self.terminated:
@@ -63,10 +60,10 @@ class Worker:
                 if not self.in_map:
                     self.notify_finish(simulator_conn)
                     continue
-                
-                edge_conn = self.edge_conns[self.edge_ip]
-                send_message(edge_conn, InstanceType.WORKER, PayloadType.REQUEST, b'request for parameter')
 
+                edge_conn = self.edge_conns[self.edge_ip]
+                send_message(edge_conn, InstanceType.WORKER,
+                             PayloadType.REQUEST, b'request for parameter')
 
             # Wait for response from Edge Server
             parameter_msg = wait_for_message(edge_conn)
@@ -74,17 +71,18 @@ class Worker:
             # Compute
             gradients = self.compute(self.data)
 
-
             # Send gradients to edge servers
             with self.cv:
-                self.cv.wait_for(lambda: self.edge_ip is not None or not self.in_map)
+                self.cv.wait_for(
+                    lambda: self.edge_ip is not None or not self.in_map)
                 # print("notified_send")
 
                 if not self.in_map:
                     self.notify_finish(simulator_conn)
                     continue
-                
-                send_message(self.edge_conns[self.edge_ip], InstanceType.WORKER, PayloadType.GRADIENT, gradients)
+
+                send_message(
+                    self.edge_conns[self.edge_ip], InstanceType.WORKER, PayloadType.GRADIENT, gradients)
 
             # Finish
             self.notify_finish(simulator_conn)
@@ -108,7 +106,7 @@ class Worker:
             # Only change data for the first messag
             if self.data is None:
                 self.data = _data
-                
+
             # if not self.in_map:
             #     print('not in map')
 
@@ -127,7 +125,7 @@ class Worker:
     def compute(self, data):
         # Build a new model using parameters received from edge servers
         self.build_model()
-        
+
         X, y = data
 
         loss_object = config_ml.LOSS
@@ -148,7 +146,8 @@ class Worker:
         self.data = None
         self.edge_ip = None
         self.in_map = True
-        send_message(simulator_conn, InstanceType.WORKER, PayloadType.ID, self.worker_id)
+        send_message(simulator_conn, InstanceType.WORKER,
+                     PayloadType.ID, self.worker_id)
 
 
 if __name__ == "__main__":

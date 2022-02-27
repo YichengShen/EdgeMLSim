@@ -1,15 +1,13 @@
 import os
-import socket
 import threading
 import yaml
 import argparse
 import csv
-import random
 import math
 import time
 import mxnet as mx
 import numpy as np
-from mxnet import nd, autograd, gluon
+from mxnet import nd
 from mxnet.gluon.data.vision import transforms
 from gluoncv.data import transforms as gcv_transforms
 import psutil
@@ -29,10 +27,13 @@ class Simulator:
         a. In each epoch, shuffle data
             - For each data batch in the epoch, send an edge server port number and the data to a worker
     """
+
     def __init__(self, num_round):
         # Config
-        self.cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
-        self.ip_cfg = yaml.load(open('deployment/ip_config.yml', 'r'), Loader=yaml.FullLoader)
+        self.cfg = yaml.load(open('config/config.yml', 'r'),
+                             Loader=yaml.FullLoader)
+        self.ip_cfg = yaml.load(
+            open('deployment/ip_config.yml', 'r'), Loader=yaml.FullLoader)
         self.num_round = num_round
 
         # ML attributes
@@ -59,7 +60,8 @@ class Simulator:
 
         # Simulation (traffic) attributes
         self.vehicle_dict = {}
-        self.edge_locations = {self.ip_cfg['ip_edges'][i]: coordinates for i, coordinates in enumerate(output_junctions)}
+        self.edge_locations = {
+            self.ip_cfg['ip_edges'][i]: coordinates for i, coordinates in enumerate(output_junctions)}
         self.sumo_root = None
         self.timestep = None
         # Clock attributes
@@ -77,18 +79,18 @@ class Simulator:
         """
         batch_size = self.cfg['batch_size']
         num_training_data = self.cfg['num_training_data']
-        
+
         # Load Data
         self.train_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('./data/mnist', train=True, transform=self.transform).take(num_training_data),
-                                batch_size, shuffle=True, last_batch='discard')
+                                                   batch_size, shuffle=True, last_batch='discard')
         self.val_train_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('./data/mnist', train=True, transform=self.transform).take(self.cfg['num_val_loss']),
-                                    batch_size, shuffle=False, last_batch='keep')
+                                                       batch_size, shuffle=False, last_batch='keep')
         self.val_test_data = mx.gluon.data.DataLoader(mx.gluon.data.vision.MNIST('./data/mnist', train=False, transform=self.transform),
-                                    batch_size, shuffle=False, last_batch='keep')
+                                                      batch_size, shuffle=False, last_batch='keep')
 
     def new_epoch(self):
         self.epoch += 1
-        
+
         # Shuffle data before each new epoch
         for data, label in self.train_data:
             self.shuffled_data.append((data, label))
@@ -97,7 +99,8 @@ class Simulator:
         # print(psutil.net_io_counters())
 
     def get_model(self):
-        send_message(self.cloud_conn, InstanceType.SIMULATOR, PayloadType.REQUEST, b'ask for model')
+        send_message(self.cloud_conn, InstanceType.SIMULATOR,
+                     PayloadType.REQUEST, b'ask for model')
         model_msg = wait_for_message(self.cloud_conn)
         return model_msg.get_payload()
 
@@ -125,28 +128,34 @@ class Simulator:
         _, loss = self.epoch_loss.get()
 
         print("Epoch {:03d}: Loss: {:03f}, Accuracy: {:03f}, Time: {} \n".format(self.epoch,
-                                                                                    loss,
-                                                                                    accu,
-                                                                                    self.total_time))
+                                                                                 loss,
+                                                                                 accu,
+                                                                                 self.total_time))
         self.save(model, self.epoch, accu, loss, self.total_time)
-    
+
     def save(self, model, epoch, accu, loss, time):
         # Save model checkpoints
         if self.cfg['save_model_checkpoints']:
             if not os.path.exists('model_checkpoints'):
                 os.makedirs('model_checkpoints')
-            checkpoint_file_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-Epoch' + str(epoch) + '-' + str(self.num_round) + '.params'
-            checkpoint_path = os.path.join('model_checkpoints', checkpoint_file_name)
+            checkpoint_file_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + \
+                self.cfg['byzantine_type_edge'] + '-Epoch' + \
+                str(epoch) + '-' + str(self.num_round) + '.params'
+            checkpoint_path = os.path.join(
+                'model_checkpoints', checkpoint_file_name)
             model.save_parameters(checkpoint_path)
 
         # Save accu, loss, etc
         if self.cfg['save_results']:
             if not os.path.exists('collected_results'):
                 os.makedirs('collected_results')
-            dir_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + '-' + self.cfg['byzantine_type_edge'] + '-' + str(self.num_round) + '.csv'
+            dir_name = self.cfg['dataset'] + '-' + self.cfg['aggregation_method'] + \
+                '-' + self.cfg['byzantine_type_edge'] + \
+                '-' + str(self.num_round) + '.csv'
             p = os.path.join('collected_results', dir_name)
             with open(p, mode='a') as f:
-                writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                writer = csv.writer(
+                    f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                 writer.writerow([epoch, accu, loss, time])
 
     def wait_for_free_worker_id(self, worker_conn, id):
@@ -156,7 +165,7 @@ class Simulator:
         self.vehicle_dict[id]['training'] = False
 
     def get_closest_edge_server_ip(self, vehicle_x, vehicle_y):
-        shortest_distance = 99999999 # placeholder (a random large number)
+        shortest_distance = 99999999  # placeholder (a random large number)
         closest_edge_server_ip = None
         for ip, (x, y) in self.edge_locations.items():
             distance = math.sqrt((x - vehicle_x) ** 2 + (y - vehicle_y) ** 2)
@@ -168,42 +177,40 @@ class Simulator:
     # Check if the vehicle is still in the map in the next timestep
     def in_map(self, timestep, v_id):
         current_timestep = float(timestep.attrib['time'])
-        next_timestep = self.sumo_root.find('timestep[@time="{:.2f}"]'.format(current_timestep+1))
-        if next_timestep == None: # reached the end of fcd file
-            next_timestep = self.sumo_root.find('timestep[@time="{:.2f}"]'.format(0))
-        id_set = set(map(lambda vehicle: vehicle.attrib['id'], next_timestep.findall('vehicle')))
+        next_timestep = self.sumo_root.find(
+            'timestep[@time="{:.2f}"]'.format(current_timestep+1))
+        if next_timestep == None:  # reached the end of fcd file
+            next_timestep = self.sumo_root.find(
+                'timestep[@time="{:.2f}"]'.format(0))
+        id_set = set(
+            map(lambda vehicle: vehicle.attrib['id'], next_timestep.findall('vehicle')))
         return v_id in id_set
 
     def clock(self):
         while not self.terminated:
-            self.timestep = self.sumo_root[self.total_time % self.num_timesteps]
+            self.timestep = self.sumo_root[self.total_time %
+                                           self.num_timesteps]
             if not self.pause_clock:
                 self.total_time += 1
             time.sleep(1)
             # print(len(self.shuffled_data), self.worker_id_free, threading.active_count())
-
 
     def process(self):
         """
             loop through sumo file
         """
 
-        if self.cfg["local_run"]:
-            HOST = socket.gethostname()
-        else:
-            HOST = self.ip_cfg["ip_sim"]
-
         # Simulator listens for Cloud
-        threading.Thread(target=server_handle_connection, 
-                        args=(HOST, self.ip_cfg["port_sim_cloud"], self, True, self.type, InstanceType.CLOUD_SERVER)).start()
+        threading.Thread(target=server_handle_connection,
+                         args=(self.ip_cfg["ip_sim"], self.ip_cfg["port_sim_cloud"], self, True, self.type, InstanceType.CLOUD_SERVER)).start()
 
         # Simulator listens for Edge Servers
-        threading.Thread(target=server_handle_connection, 
-                        args=(HOST, self.ip_cfg["port_sim_edge"], self, True, self.type, InstanceType.EDGE_SERVER)).start()
+        threading.Thread(target=server_handle_connection,
+                         args=(self.ip_cfg["ip_sim"], self.ip_cfg["port_sim_edge"], self, True, self.type, InstanceType.EDGE_SERVER)).start()
 
         # Simulator starts to listen for Workers
-        threading.Thread(target=server_handle_connection, 
-                        args=(HOST, self.ip_cfg["port_sim_worker"], self, True, self.type, InstanceType.WORKER)).start()
+        threading.Thread(target=server_handle_connection,
+                         args=(self.ip_cfg["ip_sim"], self.ip_cfg["port_sim_worker"], self, True, self.type, InstanceType.WORKER)).start()
 
         print("\nSimulator listening\n")
 
@@ -213,11 +220,14 @@ class Simulator:
             print(f"\n>>> Cloud Server connected \n")
 
             # Wait for edge servers to connect
-            self.cv.wait_for(lambda: len(self.edge_conns) >= self.cfg['num_edges'])
-            print(f"\n>>> All {len(self.edge_conns)} edge servers connected \n")
+            self.cv.wait_for(lambda: len(self.edge_conns)
+                             >= self.cfg['num_edges'])
+            print(
+                f"\n>>> All {len(self.edge_conns)} edge servers connected \n")
 
             # Wait for all workers to connect
-            self.cv.wait_for(lambda: len(self.worker_conns) >= self.cfg['num_workers'])
+            self.cv.wait_for(lambda: len(self.worker_conns)
+                             >= self.cfg['num_workers'])
             print(f"\n>>> All {len(self.worker_conns)} workers connected \n")
 
         # Parse map xml file
@@ -233,7 +243,7 @@ class Simulator:
         self.new_epoch()
 
         # Maximum training epochs
-        while self.epoch <= self.cfg['num_epochs']: 
+        while self.epoch <= self.cfg['num_epochs']:
             timestep = self.timestep
             vehicle_list = timestep.findall('vehicle')
 
@@ -242,12 +252,13 @@ class Simulator:
                 # If vehicle not yet stored in vehicle_dict
                 v_id = vehicle.attrib['id']
                 if v_id not in self.vehicle_dict:
-                    self.vehicle_dict[v_id] = {'training': False, 'connection': None, 'last_ip': None}
-                    
-                edge_ip = self.get_closest_edge_server_ip(float(vehicle.attrib['x']), float(vehicle.attrib['y']))
+                    self.vehicle_dict[v_id] = {
+                        'training': False, 'connection': None, 'last_ip': None}
+
+                edge_ip = self.get_closest_edge_server_ip(
+                    float(vehicle.attrib['x']), float(vehicle.attrib['y']))
                 data = None
 
-                
                 # Vehicle does not have training task currently
                 if not self.vehicle_dict[v_id]['training']:
                     self.vehicle_dict[v_id]['connection'] = None
@@ -256,7 +267,7 @@ class Simulator:
                     with self.lock:
                         # If no free worker, continue
                         if not self.worker_id_free or edge_ip is None:
-                            continue                  
+                            continue
                         # If free worker available
                         workerId = self.worker_id_free.pop()
                         self.vehicle_dict[v_id]['connection'] = self.worker_conns[workerId]
@@ -264,25 +275,28 @@ class Simulator:
                         # Run out of training data for the particular epoch
                         if not self.shuffled_data:
                             self.pause_clock = True
-                            print('------------------start pause-----------------------')
+                            print(
+                                '------------------start pause-----------------------')
                             if self.epoch > 0:
                                 # if self.epoch <= 10 or self.epoch % 10 == 0:
                                 self.print_accu_loss()
                             self.new_epoch()
                             self.pause_clock = False
-                            print('--------------------end pause-----------------------')
+                            print(
+                                '--------------------end pause-----------------------')
                             if self.epoch > self.cfg['num_epochs']:
                                 break
                         data = self.shuffled_data.pop()
 
                     # Wait for the work to finish and send back its id in a new thread
-                    threading.Thread(target=self.wait_for_free_worker_id, args=(self.vehicle_dict[v_id]['connection'], v_id)).start()
-                
+                    threading.Thread(target=self.wait_for_free_worker_id, args=(
+                        self.vehicle_dict[v_id]['connection'], v_id)).start()
+
                 worker_conn = self.vehicle_dict[v_id]['connection']
 
                 # in_map returns False when the vehicle is no longer in the map in the next timestep
                 in_map = self.in_map(timestep, v_id)
-                
+
                 # If vehicle has same edge server IP as last time and still in map, continue
                 if edge_ip == self.vehicle_dict[v_id]['last_ip'] and in_map:
                     continue
@@ -294,20 +308,24 @@ class Simulator:
                 # 2. Vehicle changes its IP (this means leaving edge range or moving to a new edge server)
                 # 3. Vehilce leaves map
                 if self.vehicle_dict[v_id]['training']:
-                    send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.DATA, (edge_ip, data, in_map))
+                    send_message(worker_conn, InstanceType.SIMULATOR,
+                                 PayloadType.DATA, (edge_ip, data, in_map))
 
         # Close the connections with workers
         for worker_conn in self.worker_conns:
-            send_message(worker_conn, InstanceType.SIMULATOR, PayloadType.CONNECTION_SIGNAL, b'1')
+            send_message(worker_conn, InstanceType.SIMULATOR,
+                         PayloadType.CONNECTION_SIGNAL, b'1')
             worker_conn.close()
 
         # Close the connections with edge servers
         for edge_conn in self.edge_conns:
-            send_message(edge_conn, InstanceType.SIMULATOR, PayloadType.CONNECTION_SIGNAL, b'1')
+            send_message(edge_conn, InstanceType.SIMULATOR,
+                         PayloadType.CONNECTION_SIGNAL, b'1')
             worker_conn.close()
 
         # Close the connections with cloud server
-        send_message(self.cloud_conn, InstanceType.SIMULATOR, PayloadType.CONNECTION_SIGNAL, b'1')
+        send_message(self.cloud_conn, InstanceType.SIMULATOR,
+                     PayloadType.CONNECTION_SIGNAL, b'1')
         self.cloud_conn.close()
 
         self.connections = []
@@ -316,7 +334,8 @@ class Simulator:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Train a model for image classification.')
+    parser = argparse.ArgumentParser(
+        description='Train a model for image classification.')
     parser.add_argument('--num-round', type=int, default=0,
                         help='number of round.')
     opt = parser.parse_args()
