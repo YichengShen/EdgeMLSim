@@ -31,11 +31,14 @@ def edge_aggregation_condition(accumulative_gradients):
 
 AGGREGATION_METHOD = cfg['aggregation_method']
 
+
 def aggre(gradients_to_aggregate, byz=byzantine.no_byz):
     # Flatten the gradients
     # param_list shape: (flattened size, n) if there are n gradients
-    param_list = [nd.concat(*[xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients_to_aggregate]
-    byz(param_list, F, grad_example=gradients_to_aggregate[0]) # See Byzantine section below
+    param_list = [nd.concat(*[xx.reshape((-1, 1)) for xx in x], dim=0)
+                  for x in gradients_to_aggregate]
+    # See Byzantine section below
+    byz(param_list, F, grad_example=gradients_to_aggregate[0])
     aggregated_gradients = None
     if AGGREGATION_METHOD == "mean":
         aggregated_gradients = nd.mean(nd.concat(*param_list, dim=1), axis=-1)
@@ -50,7 +53,8 @@ def aggre(gradients_to_aggregate, byz=byzantine.no_byz):
         else:
             mid_idx1 = int(sorted_array.shape[-1]/2-1)
             mid_idx2 = int(sorted_array.shape[-1]/2)
-            aggregated_gradients = (sorted_array[:, mid_idx1] + sorted_array[:, mid_idx2]) / 2.
+            aggregated_gradients = (
+                sorted_array[:, mid_idx1] + sorted_array[:, mid_idx2]) / 2.
     else:
         print("Undefined aggregation method")
     return aggregated_gradients
@@ -58,8 +62,8 @@ def aggre(gradients_to_aggregate, byz=byzantine.no_byz):
 
 ################################################
 #                  Byzantine                   #
-################################################ 
-# Byzantine types: no_byz, gaussian_attack, bitflip_attack, signflip_attack (See byzantine.py)   
+################################################
+# Byzantine types: no_byz, gaussian_attack, bitflip_attack, signflip_attack (See byzantine.py)
 # 1. At Cloud Server level
 if cfg['byzantine_type_cloud'] == 'gaussian_attack':
     BYZ_TYPE_CLOUD = byzantine.gaussian_attack

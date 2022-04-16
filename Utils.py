@@ -16,17 +16,17 @@ CFG = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
 def server_handle_connection(host, port, instance, persistent_connection, source_type=None, client_type=None):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    # the SO_REUSEADDR flag tells the kernel to reuse a local socket in TIME_WAIT state, 
+    # the SO_REUSEADDR flag tells the kernel to reuse a local socket in TIME_WAIT state,
     # without waiting for its natural timeout to expire
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-    #Bind socket to local host and port
+    # Bind socket to local host and port
     try:
         s.bind((host, port))
     except socket.error as msg:
         print('Bind failed. Error :', msg)
         sys.exit()
-    #Start listening on socket
+    # Start listening on socket
     s.listen()
     # print(instance.type, 'now listening')
     s.settimeout(10)
@@ -36,16 +36,18 @@ def server_handle_connection(host, port, instance, persistent_connection, source
             conn, addr = s.accept()
             print('Connected with ' + addr[0] + ':' + str(addr[1]))
             if source_type == None or source_type == InstanceType.EDGE_SERVER:
-                threading.Thread(target=connection_thread, args=(conn, instance, persistent_connection, source_type)).start()
+                threading.Thread(target=connection_thread, args=(
+                    conn, instance, persistent_connection, source_type)).start()
             with instance.cv:
                 if source_type == InstanceType.SIMULATOR:
                     if client_type == InstanceType.WORKER:
                         instance.worker_conns.append(conn)
                         # TODO: revisit worker ID
                         # assign id to worker
-                        instance.worker_id_free.add(instance.worker_count) 
+                        instance.worker_id_free.add(instance.worker_count)
                         # send id to worker
-                        send_message(conn, instance.type, PayloadType.ID, instance.worker_count)
+                        send_message(conn, instance.type,
+                                     PayloadType.ID, instance.worker_count)
                         instance.worker_count += 1
                     elif client_type == InstanceType.CLOUD_SERVER:
                         instance.cloud_conn = conn
@@ -54,11 +56,12 @@ def server_handle_connection(host, port, instance, persistent_connection, source
                 else:
                     instance.connections.append(conn)
                     if source_type != InstanceType.EDGE_SERVER:
-                        send_message(conn, instance.type, PayloadType.PARAMETER, instance.parameter)
+                        send_message(conn, instance.type,
+                                     PayloadType.PARAMETER, instance.parameter)
                 instance.cv.notify()
         except:
             if instance.terminated:
-                break 
+                break
 
     # Close all exisiting connections
     for conn in instance.connections:
@@ -67,6 +70,7 @@ def server_handle_connection(host, port, instance, persistent_connection, source
     print('Connection loop exit')
 
     s.close()
+
 
 def connection_thread(conn, instance, persistent_connection, source_type):
     while not instance.terminated:
@@ -78,14 +82,16 @@ def connection_thread(conn, instance, persistent_connection, source_type):
             if source_type == None or source_type == InstanceType.EDGE_SERVER:
                 if msg.get_payload_type() == PayloadType.GRADIENT:
                     # used for both Cloud and Edge
-                    with instance.cv:     
+                    with instance.cv:
                         instance.accumulative_gradients.append(msg.payload)
                         instance.cv.notify()
                 elif msg.get_payload_type() == PayloadType.REQUEST:
                     # used for Edge Server (when workers ask for parameters)
-                    send_message(conn, instance.type, PayloadType.PARAMETER, instance.parameter)
+                    send_message(conn, instance.type,
+                                 PayloadType.PARAMETER, instance.parameter)
         if not persistent_connection:
             break
+
 
 def client_build_connection(host, port, wait_initial_msg=True):
     # create an INET, STREAMing socket
@@ -120,6 +126,7 @@ def client_build_connection(host, port, wait_initial_msg=True):
     else:
         return s
 
+
 def send_message(conn, source_type, payload_type, payload):
     msg = Msg(source_type, payload_type, payload)
     data = pickle.dumps(msg)
@@ -139,6 +146,7 @@ def wait_for_message(conn):
     # Retreat data using its length
     data = wait_for_message_helper(conn, msglen)
     return pickle.loads(b"".join(data))
+
 
 def wait_for_message_helper(conn, n):
     data = []

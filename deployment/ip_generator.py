@@ -17,6 +17,7 @@ def enough_ip_in_subnet(num_ip):
     """
     return num_ip <= 252
 
+
 def generate_ip_config(num_edge):
     """
     Writes a yaml file, 'config/ip_config.yml', containing the generated IP addresses for the simulator, cloud server, and edge servers. Returns the information as a dict.
@@ -47,15 +48,15 @@ def generate_ip_config(num_edge):
         ip_edges.append(IP_SUBNET+str(i))
 
     ip_config = {
-        'ip_sim' : ip_simulator,
+        'ip_sim': ip_simulator,
         'ip_cloud': ip_cloud,
         'ip_edges': ip_edges,
         'port_sim_cloud': 10000,
         'port_sim_edge': 10001,
         'port_sim_worker': 10002,
-        'port_cloud' : 50000,
-        'port_edge' : 60000
-        }
+        'port_cloud': 50000,
+        'port_edge': 60000
+    }
 
     with open('deployment/ip_config.yml', 'w') as file:
         yaml.dump(ip_config, file)

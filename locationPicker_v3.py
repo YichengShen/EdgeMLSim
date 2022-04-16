@@ -15,7 +15,7 @@ cfg = yaml.load(file, Loader=yaml.FullLoader)
 x = []
 y = []
 coord = []
-num_points = 0 # number of rows in fcd file
+num_points = 0  # number of rows in fcd file
 # Calculate traffic on each (x,y)
 # tree = ET.parse("MonacoST/most_fcd.xml")
 tree = ET.parse(cfg['FCD_FILE'])
@@ -35,8 +35,8 @@ for timestep in root:
 # The value of eps and min_samples determines how each cluster is formed
 # Higher min_samples or lower eps indicate higher density necessary to form a cluster
 # More can be read about them on https://scikit-learn.org/stable/modules/clustering.html#dbscan and https://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html#sklearn.cluster.DBSCAN
-min_samples = round(num_points * 0.001) # 0.1% of traffic points
-eps = 5 # the initial eps value
+min_samples = round(num_points * 0.001)  # 0.1% of traffic points
+eps = 5  # the initial eps value
 n_clusters_ = -1
 num_rsu = cfg['num_edges']
 # num_rsu = 10
@@ -45,7 +45,7 @@ num_rsu = cfg['num_edges']
 while n_clusters_ < num_rsu:
     # print("Testing DBSCAN with min_samples={} and eps={}".format(min_samples, eps))
     db = DBSCAN(eps=eps, min_samples=min_samples).fit(coord)
-    labels = db.labels_ # The labels has the same shape as coord, each index i of label tells which cluster index i of coord is in
+    labels = db.labels_  # The labels has the same shape as coord, each index i of label tells which cluster index i of coord is in
     n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
     eps += 5
     # When increasing eps no longer contributes to getting more clusters, break
@@ -66,8 +66,10 @@ for i, x in enumerate(labels):
     dic[x]['x'].append(coord[i][0])
     dic[x]['y'].append(coord[i][1])
 
+
 def largestN(n):
     return order[1:n+1]
+
 
 largest_dic = {}
 largest = largestN(num_rsu)
@@ -80,11 +82,14 @@ for key, value in dic.items():
 # plt.show()
 
 # Find the center of a cluster
+
+
 def find_center(value):
     num_points = len(value['x'])
     center_x = sum(value['x']) / num_points
     center_y = sum(value['y']) / num_points
     return center_x, center_y
+
 
 # Center_dic contains all clusters with their center as the value
 center_dic = {}
@@ -118,35 +123,38 @@ def intersection_area(d, R, r):
 
 
 closest_junction_distance = {}
-junction_dic= {}
+junction_dic = {}
 for key in center_dic.keys():
     closest_junction_distance[key] = 99999
     junction_dic[key] = None
 
 rsu_counter = num_rsu
-rsu_range = cfg['v2rsu'] # Later, this should match RSU range defined in our simulator
+# Later, this should match RSU range defined in our simulator
+rsu_range = cfg['v2rsu']
 
 # Loop starting the densest cluster
 for key in order:
     # Break if finished picking all RSUs
     if rsu_counter <= 0:
         break
-    if key != -1: # -1 is the noise
+    if key != -1:  # -1 is the noise
         for junction in junction_list:
             overlap = False
             # Compare the current junction with every RSU that has been picked out already
             for junc in junction_dic.values():
                 if junc is not None:
                     # d -> distance between two junctions(potential RSU) -> distance between 2 circles
-                    d = sqrt((float(junc.attrib['x']) - float(junction.attrib['x'])) ** 2 + (float(junc.attrib['y']) - float(junction.attrib['y'])) ** 2)
+                    d = sqrt((float(junc.attrib['x']) - float(junction.attrib['x'])) ** 2 + (
+                        float(junc.attrib['y']) - float(junction.attrib['y'])) ** 2)
                     area_intersect = intersection_area(d, rsu_range, rsu_range)
                     ratio_intersect = area_intersect / (rsu_range**2 * np.pi)
-                    if ratio_intersect >= 0.8: # the allowed ratio of overlaping
+                    if ratio_intersect >= 0.8:  # the allowed ratio of overlaping
                         overlap = True
             # If the current junction passes the overlap test, then update junction_dic
             if not overlap:
                 center_x, center_y = center_dic[key]
-                distance = sqrt((float(junction.attrib['x']) - center_x) ** 2 + (float(junction.attrib['y']) - center_y) ** 2)
+                distance = sqrt((float(junction.attrib['x']) - center_x) ** 2 + (
+                    float(junction.attrib['y']) - center_y) ** 2)
                 if distance < closest_junction_distance[key]:
                     closest_junction_distance[key] = distance
                     junction_dic[key] = junction
@@ -170,11 +178,13 @@ for key, junction in junction_dic.items():
         total_traffic += dicc[key]
 for key, junction in junction_dic.items():
     if junction is not None:
-        print("Cluster:", key, "Coord:", (float(junction.attrib['x']), float(junction.attrib['y'])), "Traffic Density:", dicc[key])
+        print("Cluster:", key, "Coord:", (float(junction.attrib['x']), float(
+            junction.attrib['y'])), "Traffic Density:", dicc[key])
         x_rsu.append(float(junction.attrib['x']))
         y_rsu.append(float(junction.attrib['y']))
         # output_junctions.append(junction)
-        output_junctions.append((float(junction.attrib['x']), float(junction.attrib['y'])))
+        output_junctions.append(
+            (float(junction.attrib['x']), float(junction.attrib['y'])))
 
 
 # Plot RSU as red stars
