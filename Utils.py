@@ -101,6 +101,8 @@ def client_build_connection(host, port, wait_initial_msg=True):
         print('Failed to create socket')
         sys.exit()
 
+    remote_ip = host
+
     # Connect to remote server
     try:
         s.connect((remote_ip, port))
