@@ -4,12 +4,11 @@ import threading
 import yaml
 import argparse
 import csv
-import random
 import math
 import time
 import mxnet as mx
 import numpy as np
-from mxnet import nd, autograd, gluon
+from mxnet import nd
 from mxnet.gluon.data.vision import transforms
 from gluoncv.data import transforms as gcv_transforms
 import psutil

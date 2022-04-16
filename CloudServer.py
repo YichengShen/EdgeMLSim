@@ -1,8 +1,6 @@
 import socket
 import threading
 import mxnet as mx
-from mxnet import nd, gluon
-import numpy as np
 from Msg import *
 from Utils import *
 from config import config_ml

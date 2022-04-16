@@ -1,10 +1,9 @@
 import socket
 import threading
-from mxnet import nd, gluon, autograd, init
+from mxnet import autograd, init
 from Msg import *
 from Utils import *
 from config import config_ml
-import numpy as np
 import yaml
 
 
