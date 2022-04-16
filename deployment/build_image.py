@@ -8,19 +8,15 @@ def build_image(client):
     image_obj = image[0]
     print("EdgeMLSim image built")
 
-    # Pull registry image hosted on Docker Hub
+    # Run a local registry for sharing the image
     registry_image = client.images.pull("registry:2")
-    # Remove previous container named "registry" if it exists
     try:
         registry_container = client.containers.get("registry")
-    except docker.errors.NotFound:
-        # Ignore the exception if the "registry" container is not found
-        pass
+    except docker.errors.NotFound as exc:
+        print(f"Check container name!\n{exc.explanation}")
     else:
         client.api.remove_container("registry", force=True)
-    # Clean up unused containers
     client.containers.prune()
-    # Run a local registry for sharing the image
     registry_list = client.api.create_container(registry_image.id,
                                                 name="registry",
                                                 detach=True,
@@ -37,9 +33,8 @@ def build_image(client):
     # Push image to local registry
     image_tag = "localhost:5000/edgemlsim"
     image_obj.tag(image_tag)
-    server_outputs = client.images.push(image_tag, stream=True, decode=True)
-    # for line in server_outputs:
-    #     print(line)
+    for line in client.images.push(image_tag, stream=True, decode=True):
+        print(line)
     print("Image pushed to local registry\n")
 
     return image_tag
