@@ -31,15 +31,10 @@ class Worker:
         self.data = None
 
     def process(self):
-        if self.cfg["local_run"]:
-            host_sim = socket.gethostname()
-            host_edge = socket.gethostname()
-        else:
-            host_sim = self.ip_cfg['ip_sim']
 
         # Build connection with simulator
         simulator_conn, id_msg = client_build_connection(
-            host_sim, self.ip_cfg['port_sim_worker'])
+            self.ip_cfg['ip_sim'], self.ip_cfg['port_sim_worker'])
         # print('connection with simulator established')
         self.worker_id = id_msg.get_payload()
 

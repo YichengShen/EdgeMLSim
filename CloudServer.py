@@ -1,4 +1,3 @@
-import socket
 import threading
 import mxnet as mx
 from Msg import *
@@ -33,21 +32,15 @@ class CloudServer:
         self.connections = []
 
     def process(self):
-        if self.cfg["local_run"]:
-            HOST_SIM = socket.gethostname()
-            HOST_CLOUD = HOST_SIM
-        else:
-            HOST_SIM = self.ip_cfg["ip_sim"]
-            HOST_CLOUD = self.ip_cfg["ip_cloud"]
 
         # Build connection with Simulator
         simulator_conn = client_build_connection(
-            HOST_SIM, self.ip_cfg["port_sim_cloud"], wait_initial_msg=False)
+            self.ip_cfg["ip_sim"], self.ip_cfg["port_sim_cloud"], wait_initial_msg=False)
         print('connection with simulator established')
 
         # Run server
         connection_thread = threading.Thread(target=server_handle_connection, args=(
-            HOST_CLOUD, self.ip_cfg["port_cloud"], self, True))
+            self.ip_cfg["ip_cloud"], self.ip_cfg["port_cloud"], self, True))
         connection_thread.start()
         print("\nCloud Server listening\n")
 

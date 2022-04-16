@@ -201,22 +201,17 @@ class Simulator:
             loop through sumo file
         """
 
-        if self.cfg["local_run"]:
-            HOST = socket.gethostname()
-        else:
-            HOST = self.ip_cfg["ip_sim"]
-
         # Simulator listens for Cloud
         threading.Thread(target=server_handle_connection,
-                         args=(HOST, self.ip_cfg["port_sim_cloud"], self, True, self.type, InstanceType.CLOUD_SERVER)).start()
+                         args=(self.ip_cfg["ip_sim"], self.ip_cfg["port_sim_cloud"], self, True, self.type, InstanceType.CLOUD_SERVER)).start()
 
         # Simulator listens for Edge Servers
         threading.Thread(target=server_handle_connection,
-                         args=(HOST, self.ip_cfg["port_sim_edge"], self, True, self.type, InstanceType.EDGE_SERVER)).start()
+                         args=(self.ip_cfg["ip_sim"], self.ip_cfg["port_sim_edge"], self, True, self.type, InstanceType.EDGE_SERVER)).start()
 
         # Simulator starts to listen for Workers
         threading.Thread(target=server_handle_connection,
-                         args=(HOST, self.ip_cfg["port_sim_worker"], self, True, self.type, InstanceType.WORKER)).start()
+                         args=(self.ip_cfg["ip_sim"], self.ip_cfg["port_sim_worker"], self, True, self.type, InstanceType.WORKER)).start()
 
         print("\nSimulator listening\n")
 

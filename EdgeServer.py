@@ -1,5 +1,4 @@
 import argparse
-import socket
 import sys
 import mxnet as mx
 import numpy as np
@@ -34,18 +33,10 @@ class EdgeServer:
         self.connections = []
 
     def process(self):
-        if self.cfg["local_run"]:
-            HOST_SIM = socket.gethostname()
-            HOST_CLOUD = HOST_SIM
-            HOST_EDGE = HOST_SIM
-        else:
-            HOST_SIM = self.ip_cfg["ip_sim"]
-            HOST_CLOUD = self.ip_cfg["ip_cloud"]
-            HOST_EDGE = self.ip
 
         # Build connection with Simulator
         simulator_conn = client_build_connection(
-            HOST_SIM, self.ip_cfg["port_sim_edge"], wait_initial_msg=False)
+            self.ip_cfg["ip_sim"], self.ip_cfg["port_sim_edge"], wait_initial_msg=False)
         print('connection with simulator established')
 
         # Keep waiting for closing signal from Simulator
@@ -54,7 +45,7 @@ class EdgeServer:
 
         # build_connection with cloud server
         central_server_conn, msg = client_build_connection(
-            HOST_CLOUD, self.ip_cfg["port_cloud"])
+            self.ip_cfg["ip_cloud"], self.ip_cfg["port_cloud"])
         self.parameter = msg.get_payload()
 
         # Keep waiting for new parameters from the central server
@@ -63,7 +54,7 @@ class EdgeServer:
 
         # Start server and wait for workers to connect
         threading.Thread(target=server_handle_connection, args=(
-            HOST_EDGE, self.port, self, True, self.type)).start()
+            self.ip, self.port, self, True, self.type)).start()
         print("\nEdge Server listening\n")
 
         # wait for at least num_of_workers workers to join
