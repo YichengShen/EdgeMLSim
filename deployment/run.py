@@ -7,7 +7,6 @@ Before running this file, you need to
 import docker
 import yaml
 from time import sleep
-from ip_generator import generate_ip_config
 from build_image import build_image
 
 
@@ -29,56 +28,76 @@ def create_overlay_net(client):
     ipam_config = docker.types.IPAMConfig(pool_configs=[ipam_pool])
     overlay_net = client.networks.create(
         "overlay_net", driver="overlay", ipam=ipam_config, attachable=True)
+    print("Overlay network created\n")
     return overlay_net
 
 
-cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
+def run_simulator(client, image_tag, ip_config, overlay_net):
+    """
+    Run the Simulator container
+    """
+    simulator = client.containers.create(
+        image_tag, name="simulator", command="python3 Simulator.py", detach=True, tty=True)
+    overlay_net.connect(simulator, ipv4_address=ip_config['ip_sim'])
+    simulator.start()
 
-# Generate a config file containing IP addresses of nodes
-ip_config = generate_ip_config(cfg['num_edges'])
-print("New IP config generated")
 
-client = docker.from_env()
+def run_cloud_server(client, image_tag, ip_config, overlay_net):
+    """
+    Run the Cloud Server container
+    """
+    cloud_server = client.containers.create(
+        image_tag, name="cloud", command="python3 CloudServer.py", detach=True, tty=True)
+    overlay_net.connect(cloud_server, ipv4_address=ip_config['ip_cloud'])
+    cloud_server.start()
 
-image_tag = build_image(client)
 
-overlay_net = create_overlay_net(client)
-print("Overlay network created")
+def run_edge_servers(client, image_tag, ip_config, overlay_net):
+    """
+    Run Edge Server containers
+    """
+    edge_servers = []
+    for idx in range(cfg['num_edges']):
+        edge_server = client.containers.create(image_tag, name="edge{idx}".format(
+            idx=idx), command="python3 EdgeServer.py --ip_index {idx}".format(idx=idx), detach=True, tty=True)
+        overlay_net.connect(
+            edge_server, ipv4_address=ip_config['ip_edges'][idx])
+        edge_server.start()
+        edge_servers.append(edge_server)
 
-# Run the Simulator container
-simulator = client.containers.create(
-    image_tag, name="simulator", command="python3 Simulator.py", detach=True, tty=True)
-overlay_net.connect(simulator, ipv4_address=ip_config['ip_sim'])
-simulator.start()
 
-sleep(10)
+def run_workers(client, image_tag, overlay_net):
+    """
+    Run Worker containers
+    """
+    workers = []
+    for idx in range(cfg['num_workers']):
+        worker = client.services.create(image_tag,
+                                        command="python3 Worker.py",
+                                        name="worker{idx}".format(idx=idx),
+                                        networks=[overlay_net.id])
+        workers.append(worker)
 
-# Run the Cloud Server container
-cloud_server = client.containers.create(
-    image_tag, name="cloud", command="python3 CloudServer.py", detach=True, tty=True)
-overlay_net.connect(cloud_server, ipv4_address=ip_config['ip_cloud'])
-cloud_server.start()
 
-sleep(10)
+def run_all_components(client, image_tag, ip_config, overlay_net, seconds_sleep=10):
+    run_simulator(client, image_tag, ip_config, overlay_net)
+    sleep(seconds_sleep)
+    run_cloud_server(client, image_tag, ip_config, overlay_net)
+    sleep(seconds_sleep)
+    run_edge_servers(client, image_tag, ip_config, overlay_net)
+    sleep(seconds_sleep)
+    run_workers(client, image_tag, overlay_net)
+    print("All EdgeMLSim components running")
 
-# Run Edge Server containers
-edge_servers = []
-for idx in range(cfg['num_edges']):
-    edge_server = client.containers.create(image_tag, name="edge{idx}".format(
-        idx=idx), command="python3 EdgeServer.py --ip_index {idx}".format(idx=idx), detach=True, tty=True)
-    overlay_net.connect(edge_server, ipv4_address=ip_config['ip_edges'][idx])
-    edge_server.start()
-    edge_servers.append(edge_server)
 
-sleep(10)
+if __name__ == "__main__":
+    cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
 
-# Run Worker as services
-workers = []
-for idx in range(cfg['num_workers']):
-    worker = client.services.create(image_tag,
-                                    command="python3 Worker.py",
-                                    name="worker{idx}".format(idx=idx),
-                                    networks=[overlay_net.id])
-    workers.append(worker)
+    client = docker.from_env()
 
-print("All components running")
+    image_tag, ip_config = build_image(client, cfg)
+
+    overlay_net = create_overlay_net(client)
+
+    run_all_components(client, image_tag, ip_config,
+                       overlay_net, seconds_sleep=10)

@@ -1,9 +1,25 @@
 from time import sleep
 import docker
+from ip_generator import generate_ip_config
 
 
-def build_image(client):
+def build_image(client, cfg):
+    """
+    Build a new EdgeMLSim image based on freshly generated IP config.
+    Arguments:
+        client : Docker client from Docker Python SDK
+        cfg : The yaml config return by yaml.load()
+    Returns:
+        image_tag (str) : Name of the EdgeMLSim image hosted on local registry
+        ip_config (dict) : A dictionary containing the IP of all nodes
+    """
+
+    # Generate a config file containing IP addresses of nodes
+    ip_config = generate_ip_config(cfg['num_edges'])
+    print("New IP config generated")
+
     # Build docker image
+    print("Start building EdgeMLSim image ...")
     image = client.images.build(path=".", tag="edgemlsim:latest")
     image_obj = image[0]
     print("EdgeMLSim image built")
@@ -42,4 +58,4 @@ def build_image(client):
     #     print(line)
     print("Image pushed to local registry\n")
 
-    return image_tag
+    return image_tag, ip_config
