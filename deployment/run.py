@@ -70,13 +70,23 @@ def run_workers(client, image_tag, overlay_net):
     """
     Run Worker containers
     """
-    workers = []
-    for idx in range(cfg['num_workers']):
-        worker = client.services.create(image_tag,
-                                        command="python3 Worker.py",
-                                        name="worker{idx}".format(idx=idx),
-                                        networks=[overlay_net.id])
-        workers.append(worker)
+
+    # Run a number of workers as replicated services
+    replica_mode = docker.types.ServiceMode(
+        mode='replicated', replicas=cfg['num_workers'])
+    client.services.create(image_tag,
+                           command="python3 Worker.py",
+                           name="worker",
+                           mode=replica_mode,
+                           networks=[overlay_net.id])
+
+    # workers = []
+    # for idx in range(cfg['num_workers']):
+    #     worker = client.services.create(image_tag,
+    #                                     command="python3 Worker.py",
+    #                                     name="worker{idx}".format(idx=idx),
+    #                                     networks=[overlay_net.id])
+    #     workers.append(worker)
 
 
 def run_all_components(client, image_tag, ip_config, overlay_net, seconds_sleep=10):
