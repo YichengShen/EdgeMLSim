@@ -1,8 +1,5 @@
 # Kill all Docker containers
-containers=$(docker ps -q)
-if [ ! -z $containers ]; then
-    docker kill $containers;
-fi
+c=$(docker ps -q) && [[ $c ]] && docker kill $c
 
 # Quit the Docker swarm
 docker swarm leave --force
