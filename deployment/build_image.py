@@ -55,8 +55,8 @@ def build_image(client, cfg, cfg_docker):
     image_tag = cfg_docker['ip_registry'] + ":5000/edgemlsim"
     image_obj.tag(image_tag)
     server_outputs = client.images.push(image_tag, stream=True, decode=True)
-    # for line in server_outputs:
-    #     print(line)
+    for line in server_outputs:
+        print(line)
     print("Image pushed to private registry\n")
 
     return image_tag, ip_config
