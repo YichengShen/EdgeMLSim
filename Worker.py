@@ -88,6 +88,7 @@ class Worker:
 
             # Finish
             self.notify_finish(simulator_conn)
+            print('task finished')
 
     def receive_simulator_info(self, simulator_conn):
         while not self.terminated:

@@ -69,7 +69,7 @@ class EdgeServer:
             with self.cv:
                 self.cv.wait_for(lambda: self.terminated or config_ml.edge_aggregation_condition(
                     self.accumulative_gradients))
-            # print('received responses from workers')
+            print('received responses from workers')
 
             if self.terminated:
                 break
