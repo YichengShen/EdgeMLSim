@@ -78,7 +78,9 @@ def run_workers(client, image_tag, overlay_net):
                            command="python3 Worker.py",
                            name="worker",
                            mode=replica_mode,
-                           networks=[overlay_net.id])
+                           networks=[overlay_net.id],
+                           constraints=['node.role == worker']
+                           )
 
     # workers = []
     # for idx in range(cfg['num_workers']):
