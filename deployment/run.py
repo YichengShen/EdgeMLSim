@@ -102,10 +102,12 @@ def run_all_components(client, image_tag, ip_config, overlay_net, seconds_sleep=
 
 if __name__ == "__main__":
     cfg = yaml.load(open('config/config.yml', 'r'), Loader=yaml.FullLoader)
+    cfg_docker = yaml.load(
+        open('config/config_docker.yml', 'r'), Loader=yaml.FullLoader)
 
     client = docker.from_env()
 
-    image_tag, ip_config = build_image(client, cfg)
+    image_tag, ip_config = build_image(client, cfg, cfg_docker)
 
     overlay_net = create_overlay_net(client)
 
