@@ -79,8 +79,7 @@ def run_workers(client, image_tag, overlay_net):
                            name="worker",
                            mode=replica_mode,
                            networks=[overlay_net.id],
-                           constraints=['node.role == manager']
-                           #    constraints=['node.role == worker']
+                           constraints=['node.role == worker']
                            )
 
     # workers = []
