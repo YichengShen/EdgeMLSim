@@ -32,10 +32,12 @@ class Worker:
 
     def process(self):
 
+        print("Worker starts...")
+
         # Build connection with simulator
         simulator_conn, id_msg = client_build_connection(
             self.ip_cfg['ip_sim'], self.ip_cfg['port_sim_worker'])
-        # print('connection with simulator established')
+        print('connection with simulator established')
         self.worker_id = id_msg.get_payload()
 
         # Build connection with Edge Servers
